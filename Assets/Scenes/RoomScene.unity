@@ -238,15 +238,15 @@ RectTransform:
   m_GameObject: {fileID: 72760365}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.39, y: 0.39, z: 0.39}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 2027162991}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: -10, y: -403}
-  m_SizeDelta: {x: 459.02, y: 73.59}
+  m_SizeDelta: {x: 830, y: 340}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &72760367
 MonoBehaviour:
@@ -1863,6 +1863,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e112c316c103e492ca3f805037ae1e3c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  readySprite: {fileID: -5834506097590981494, guid: 28e21d325e20e4771b2f806b6acfb3a3, type: 3}
+  notReadySprite: {fileID: 8866456603955834760, guid: 95a73dcc3055d4f48bceff1769f9be22, type: 3}
+  startSprite: {fileID: -6749094419878769080, guid: 0a848837d21c743f2a2aaba1e3d46402, type: 3}
   playerReady: 00000000
   actionButton: {fileID: 72760367}
   readyIndicators:
