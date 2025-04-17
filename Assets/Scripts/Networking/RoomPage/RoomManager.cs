@@ -9,12 +9,6 @@ namespace MCRGame.Net
 {
     public class RoomManager : MonoBehaviour
     {
-
-        //버튼 스프라이트 등록
-        public Sprite readySprite;
-        public Sprite notReadySprite;
-        public Sprite startSprite;
-
         // 4명의 플레이어 Ready 상태 (Players 배열의 인덱스 기준; host는 RoomDataManager.Instance.HostSlotIndex)
         public bool[] playerReady = new bool[4];
 
@@ -73,7 +67,15 @@ namespace MCRGame.Net
                 if (isHost)
                 {
                     // host의 슬롯은 RoomDataManager.Instance.HostSlotIndex로 설정
+                    RoomUserData[] players = RoomDataManager.Instance.Players;
                     RoomDataManager.Instance.mySlotIndex = RoomDataManager.Instance.HostSlotIndex;
+                    players[RoomDataManager.Instance.mySlotIndex] = new RoomUserData
+                    {
+                        uid = PlayerDataManager.Instance.Uid,
+                        nickname = PlayerDataManager.Instance.Nickname,
+                        isReady = false,
+                        slot_index = RoomDataManager.Instance.mySlotIndex
+                    };
                     playerReady[RoomDataManager.Instance.mySlotIndex] = true;
                     isReady = true;
                 }
@@ -98,19 +100,17 @@ namespace MCRGame.Net
                 Debug.LogError("PlayerDataManager 또는 RoomDataManager 인스턴스가 없습니다.");
             }
 
-            // 현재 플레이어가 host인지 결정 후 스프라이트 지정
+            // 단일 버튼 설정: host이면 "Start", 게스트이면 "Ready"
             if (actionButton != null)
             {
                 if (isHost)
                 {
-                    // host면 Start 이미지로 변경
-                    actionButton.image.sprite = startSprite;
+                    actionButton.GetComponentInChildren<Text>().text = "Start";
                     actionButton.interactable = false;
                 }
                 else
                 {
-                    // 게스트면 기본 상태(notReadySprite)로 설정
-                    actionButton.image.sprite = notReadySprite;
+                    actionButton.GetComponentInChildren<Text>().text = "Ready";
                     actionButton.interactable = true;
                 }
                 actionButton.onClick.AddListener(OnActionButtonClicked);
@@ -151,20 +151,22 @@ namespace MCRGame.Net
             {
                 // 게스트 Ready 상태 토글
                 isReady = !isReady;
-                int slot = RoomDataManager.Instance.mySlotIndex;
+                int slot = RoomDataManager.Instance.mySlotIndex; // RoomDataManager에서 참조
                 playerReady[slot] = isReady;
+                // Players 배열 업데이트: 현재 플레이어의 Ready 상태 변경
                 if (RoomDataManager.Instance.Players[slot] != null)
                 {
                     RoomDataManager.Instance.Players[slot].isReady = isReady;
                 }
+                // UI 업데이트는 UpdatePlayerUI에서 처리
                 UpdatePlayerUI();
-
-                // 텍스트 대신 버튼 이미지 스프라이트를 변경
                 if (actionButton != null)
                 {
-                    actionButton.image.sprite = isReady ? readySprite : notReadySprite;
+                    actionButton.GetComponentInChildren<Text>().text = isReady ? "Ready ✔" : "Ready";
                 }
 
+                // Ready 버튼 클릭 시 WebSocket 연결 상태에 따라 처리:
+                // 연결이 완료되어 있다면 바로 신호 전송, 아니라면 추후 전송을 위해 플래그 설정.
                 if (wsConnected && roomWS != null)
                 {
                     roomWS.SendReadyStatus(isReady);
@@ -208,6 +210,7 @@ namespace MCRGame.Net
                 request.downloadHandler = new DownloadHandlerBuffer();
                 request.SetRequestHeader("Content-Type", "application/json");
                 request.SetRequestHeader("Authorization", $"Bearer {PlayerDataManager.Instance.AccessToken}");
+                request.certificateHandler = new BypassCertificateHandler();
 
                 yield return request.SendWebRequest();
 
