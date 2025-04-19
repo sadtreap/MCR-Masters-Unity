@@ -158,7 +158,8 @@ namespace MCRGame.Game
                     GameManager.Instance.ProcessTsumoActions(message.Data);
                     break;
                 case GameWSActionType.DISCARD_ACTIONS:
-                    Debug.Log("[GameMessageMediator] Discard actions received.");
+                case GameWSActionType.ROBBING_KONG_ACTIONS:
+                    Debug.Log($"[GameMessageMediator] {message.Event} received.");
                     GameManager.Instance.ProcessDiscardActions(message.Data);
                     break;
                 case GameWSActionType.DISCARD:

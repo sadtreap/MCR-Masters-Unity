@@ -534,7 +534,7 @@ namespace MCRGame.Game
             {
                 var skip = Instantiate(actionButtonPrefab, actionButtonPanel);
                 skip.GetComponent<Image>().sprite = skipButtonSprite;
-                skip.GetComponent<Button>().onClick.AddListener(OnSkipButtonClicked);
+                skip.GetComponent<Button>().onClick.AddListener(OnSkipButtonClickedAfterTsumo);
             }
             // 4) GridLayoutGroup에 맞춰 버튼 생성
             foreach (var act in list)
@@ -590,9 +590,25 @@ namespace MCRGame.Game
             ClearActionUI();
         }
 
-        private void ClearActionUI()
+        private void OnSkipButtonClickedAfterTsumo()
+        {
+            Debug.Log("Skip 선택");
+            GameAction SkipAction = new GameAction();
+            SkipAction.Type = GameActionType.SKIP;
+            SkipAction.Tile = GameTile.M1;
+            SkipAction.SeatPriority = RelativeSeat.SELF;
+            _ = SendSelectedAction(action: SkipAction);
+            ClearActionButtons();
+        }
+
+        private void ClearActionButtons()
         {
             foreach (Transform c in actionButtonPanel) Destroy(c.gameObject);
+        }
+
+        private void ClearActionUI()
+        {
+            ClearActionButtons();
             if (timerText != null) timerText.gameObject.SetActive(false);
         }
 
@@ -1264,6 +1280,9 @@ namespace MCRGame.Game
             GameTile winningTile
         )
         {
+            ClearActionUI();
+            gameHandManager.CanClick = false;
+            gameHandManager.IsAnimating = true;
             handTiles.Sort();
             int singleScore = scoreResult.total_score;
             int total_score = (winPlayerSeat == currentPlayerSeat ? singleScore * 3 : singleScore) + 24;

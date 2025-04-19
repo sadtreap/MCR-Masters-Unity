@@ -221,67 +221,77 @@ namespace MCRGame.UI
             float widthLocal = tileMax.x - tileMin.x;
             offsetX -= widthLocal;
         }
-        /// <summary>
-        /// PUNG 타입인 경우에만 호출됩니다.
-        /// SHOMIN_KONG 효과를 적용하여, 회전된 타일(rotate된 타일)의 위쪽(로컬 Y 방향)에 동일한 회전 상태의 새 타일을 추가하고,
-        /// Data.Type을 SHOMIN_KONG으로 변경합니다.
-        /// </summary>
+
         public void ApplyShominKong()
         {
-            // 현재 타입이 PUNG이 아니면 실행되지 않음
+            Debug.Log("[ApplyShominKong] 시작");
+
+            // 1. 타입 검사
             if (Data.Type != CallBlockType.PUNG)
             {
-                Debug.LogWarning("ApplyShominKong은 PUNG 타입에서만 적용 가능합니다.");
+                Debug.LogWarning($"[ApplyShominKong] 실패: 현재 타입이 PUNG이 아님 (현재: {Data.Type})");
                 return;
             }
+            Debug.Log("[ApplyShominKong] PUNG 타입 확인");
 
-            // PUNG 블록은 3장의 타일이 있어야 함
+            // 2. 타일 개수 검사
+            Debug.Log($"[ApplyShominKong] 현재 타일 개수: {Tiles.Count}");
             if (Tiles.Count != 3)
             {
-                Debug.LogWarning($"ApplyShominKong: PUNG 블록은 3장의 타일이어야 합니다. 현재 타일 수: {Tiles.Count}");
+                Debug.LogWarning($"[ApplyShominKong] 실패: PUNG 블록은 3장의 타일이어야 합니다. (현재: {Tiles.Count})");
                 return;
             }
+            Debug.Log("[ApplyShominKong] 타일 개수 3개 확인");
 
-            // 회전된 타일의 인덱스를 가져옵니다.
+            // 3. 회전 인덱스 계산
             int rotatedIndex = GetRotateIndex();
+            Debug.Log($"[ApplyShominKong] 회전될 타일 인덱스: {rotatedIndex}");
             if (rotatedIndex < 0 || rotatedIndex >= Tiles.Count)
             {
-                Debug.LogWarning("ApplyShominKong: 유효한 회전 타일 인덱스가 아닙니다.");
+                Debug.LogWarning($"[ApplyShominKong] 실패: 유효한 회전 인덱스가 아님 ({rotatedIndex})");
                 return;
             }
 
-            // 새 타일 생성 : PUNG의 Data.FirstTile을 기준으로 생성
+            // 4. 새 타일 생성
+            Debug.Log($"[ApplyShominKong] 새 타일 생성 (기준 타일: {Data.FirstTile})");
             GameObject newTile = Create3DTile(Data.FirstTile);
             if (newTile == null)
             {
-                Debug.LogError("ApplyShominKong: 새 타일 생성 실패");
+                Debug.LogError("[ApplyShominKong] 실패: 새 타일 생성 중 오류");
                 return;
             }
             newTile.transform.SetParent(transform, false);
             newTile.transform.localRotation = Tiles[rotatedIndex].transform.localRotation;
+            Debug.Log("[ApplyShominKong] 새 타일 생성 및 부모/회전 설정 완료");
 
-            // 대상 타일(회전된 타일)의 로컬 경계에서 Y축 높이를 측정
+            // 5. Y 오프셋 계산
             var bounds = GetTileLocalBounds(Tiles[rotatedIndex]);
-            float yOffset = 0f;
+            float yOffset;
             if (bounds.HasValue)
             {
                 yOffset = bounds.Value.max.y - bounds.Value.min.y;
+                Debug.Log($"[ApplyShominKong] 경계 계산 성공: yOffset = {yOffset:F3}");
             }
             else
             {
-                Debug.LogWarning("ApplyShominKong: 회전된 타일의 경계 계산 실패, 기본 offset 사용");
                 yOffset = shominKongOffset;
+                Debug.LogWarning($"[ApplyShominKong] 경계 계산 실패, 기본 offset 사용: {yOffset:F3}");
             }
 
-            // 회전된 타일의 위치 위쪽(로컬 Y 방향)으로 yOffset 만큼 오프셋 적용
+            // 6. 위치 조정
             Vector3 basePos = Tiles[rotatedIndex].transform.localPosition;
-            newTile.transform.localPosition = basePos + new Vector3(0f, yOffset, 0f);
+            Vector3 targetPos = basePos + new Vector3(0f, yOffset, 0f);
+            newTile.transform.localPosition = targetPos;
+            Debug.Log($"[ApplyShominKong] 새 타일 위치 설정: basePos={basePos}, targetPos={targetPos}");
 
-            // 새 타일을 Tiles 리스트에 추가
+            // 7. 리스트 및 타입 업데이트
             Tiles.Add(newTile);
+            Debug.Log($"[ApplyShominKong] Tiles 리스트에 추가 (새 개수: {Tiles.Count})");
 
-            // 타입 업데이트: PUNG -> SHOMIN_KONG
             Data.Type = CallBlockType.SHOMIN_KONG;
+            Debug.Log($"[ApplyShominKong] CallBlock 타입 업데이트: {CallBlockType.PUNG} → {Data.Type}");
+
+            Debug.Log("[ApplyShominKong] 완료");
         }
 
     }

@@ -1,41 +1,150 @@
-using System.Collections;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using MCRGame.Net;  // RoomApiManager, AvailableRoomResponseList 등 포함
+using MCRGame.Net;
+using System.Collections;
 
 namespace MCRGame.UI
 {
     public class RoomListManager : MonoBehaviour
     {
-        [Header("UI References")]
-        [SerializeField] private Transform contentParent; // Scroll View의 Content
-        [SerializeField] private GameObject roomItemPrefab; // RoomItem 프리팹
-        [SerializeField] private Button refreshButton;      // 수동 갱신용 Refresh 버튼
+        public static RoomListManager Instance { get; private set; }
 
-        [Header("Dependencies")]
-        [SerializeField] private RoomApiManager roomApiManager; // 방 목록을 가져올 API 매니저
+        [Header("Prefabs")]
+        [SerializeField] private GameObject scrollViewPrefab;
+        [SerializeField] private GameObject roomItemPrefab;
+
+        [Header("UI References")]
+        [SerializeField] private Button refreshButton;      // inspector에서 드래그할당
+
+        private GameObject scrollViewInst;
+        private Transform contentParent;
 
         [Header("Settings")]
-        [SerializeField] private float refreshInterval = 5f; // 자동 갱신 주기(초)
+        [SerializeField] private float refreshInterval = 5f;
 
         private Coroutine autoRefreshCoroutine;
 
-        private void Start()
+        private void Awake()
         {
-            // Refresh 버튼 클릭 시 즉시 방 목록 갱신
-            if (refreshButton != null)
-                refreshButton.onClick.AddListener(RefreshRoomList);
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
 
-            // 자동 갱신 코루틴 시작
-            autoRefreshCoroutine = StartCoroutine(AutoRefreshRoomList());
-
-            // 씬 시작 시 초기 방 목록 갱신
-            RefreshRoomList();
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            Debug.Log("[RoomListManager] Singleton Awake and listening for sceneLoaded.");
         }
 
-        /// <summary>
-        /// 5초마다 자동으로 방 목록을 갱신하는 코루틴입니다.
-        /// </summary>
+        private void OnDestroy()
+        {
+            if (Instance == this)
+            {
+                SceneManager.sceneLoaded -= OnSceneLoaded;
+                Instance = null;
+            }
+        }
+
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            Debug.Log($"[RoomListManager] Scene loaded: {scene.name}");
+
+            if (scene.name == "RoomListScene")
+            {
+                InitScrollView();
+                RefreshRoomList();
+                StartAutoRefresh();
+            }
+            else
+            {
+                // RoomListScene이 아니면 자동 갱신 중지 및 UI 제거
+                if (autoRefreshCoroutine != null)
+                {
+                    Debug.Log("[RoomListManager] Exiting RoomListScene → Stop AutoRefresh");
+                    StopCoroutine(autoRefreshCoroutine);
+                    autoRefreshCoroutine = null;
+                }
+                if (scrollViewInst != null)
+                {
+                    Debug.Log("[RoomListManager] Exiting RoomListScene → Destroy ScrollView");
+                    Destroy(scrollViewInst);
+                    scrollViewInst = null;
+                    contentParent = null;
+                }
+            }
+        }
+
+        private void InitScrollView()
+        {
+            Debug.Log("[RoomListManager] InitScrollView() 시작");
+
+            if (scrollViewInst != null)
+            {
+                Debug.Log("[RoomListManager] Destroy existing scrollViewInst");
+                Destroy(scrollViewInst);
+                scrollViewInst = null;
+                contentParent = null;
+            }
+
+            var canvas = FindAnyObjectByType<Canvas>();
+            if (canvas == null)
+            {
+                Debug.LogError("[RoomListManager] Canvas를 찾을 수 없습니다!");
+                return;
+            }
+            Debug.Log($"[RoomListManager] Canvas found: {canvas.gameObject.name}");
+
+            if (scrollViewPrefab == null)
+            {
+                Debug.LogError("[RoomListManager] scrollViewPrefab이 할당되지 않았습니다!");
+                return;
+            }
+            scrollViewInst = Instantiate(scrollViewPrefab, canvas.transform, false);
+            scrollViewInst.name = "RoomListScrollView";
+            Debug.Log($"[RoomListManager] scrollViewInst created: {scrollViewInst.name}");
+
+            var viewport = scrollViewInst.transform.Find("Viewport");
+            if (viewport == null)
+            {
+                Debug.LogError("[RoomListManager] scrollViewInst에 'Viewport' 자식이 없습니다!");
+                return;
+            }
+            Debug.Log("[RoomListManager] Viewport found");
+
+            var content = viewport.Find("Content");
+            if (content == null)
+            {
+                Debug.LogError("[RoomListManager] Viewport에 'Content' 자식이 없습니다!");
+                return;
+            }
+            Debug.Log("[RoomListManager] Content found");
+            contentParent = content;
+
+            if (refreshButton == null)
+            {
+                Debug.LogWarning("[RoomListManager] refreshButton이 inspector에 할당되지 않았습니다!");
+            }
+            else
+            {
+                Debug.Log($"[RoomListManager] refreshButton found: {refreshButton.gameObject.name}");
+                refreshButton.onClick.RemoveAllListeners();
+                refreshButton.onClick.AddListener(RefreshRoomList);
+            }
+
+            Debug.Log("[RoomListManager] InitScrollView() completed");
+        }
+
+        private void StartAutoRefresh()
+        {
+            if (autoRefreshCoroutine != null)
+                StopCoroutine(autoRefreshCoroutine);
+            Debug.Log("[RoomListManager] StartAutoRefresh()");
+            autoRefreshCoroutine = StartCoroutine(AutoRefreshRoomList());
+        }
+
         private IEnumerator AutoRefreshRoomList()
         {
             while (true)
@@ -45,68 +154,62 @@ namespace MCRGame.UI
             }
         }
 
-        /// <summary>
-        /// RoomApiManager의 FetchRooms를 호출하여 방 목록을 새로고침합니다.
-        /// </summary>
         public void RefreshRoomList()
         {
-            Debug.Log("[RoomListManager] 방 목록 갱신 요청.");
-            StartCoroutine(roomApiManager.FetchRooms(OnRoomsFetched, OnFetchError));
+            Debug.Log("[RoomListManager] RefreshRoomList() 호출");
+            StartCoroutine(RoomApiManager.Instance.FetchRooms(OnRoomsFetched, OnFetchError));
         }
 
-        /// <summary>
-        /// 서버에서 방 목록을 정상적으로 받아왔을 때 호출되는 콜백입니다.
-        /// 기존에 생성된 RoomItem들을 제거한 후, 새롭게 RoomItem을 생성합니다.
-        /// </summary>
-        /// <param name="roomListResponse">서버에서 받아온 방 목록 응답</param>
         private void OnRoomsFetched(AvailableRoomResponseList roomListResponse)
         {
-            // 기존 RoomItem 제거
-            foreach (Transform child in contentParent)
+            Debug.Log($"[RoomListManager] OnRoomsFetched: rooms count = {roomListResponse?.rooms?.Length}");
+            if (contentParent == null)
             {
-                Destroy(child.gameObject);
-            }
-
-            if (roomListResponse == null || roomListResponse.rooms == null)
-            {
-                Debug.LogWarning("[RoomListManager] 방 목록이 비어 있습니다.");
+                Debug.LogError("[RoomListManager] contentParent is null!");
                 return;
             }
 
-            // 받아온 방 목록 순회하며 RoomItem 생성
+            foreach (Transform child in contentParent)
+                Destroy(child.gameObject);
+
+            if (roomListResponse?.rooms == null || roomListResponse.rooms.Length == 0)
+            {
+                Debug.Log("[RoomListManager] No rooms returned from API.");
+                return;
+            }
+
             foreach (var roomInfo in roomListResponse.rooms)
             {
+                Debug.Log($"[RoomListManager] Creating RoomItem for room {roomInfo.room_number}");
                 CreateRoomItem(roomInfo);
             }
         }
 
-        /// <summary>
-        /// 방 목록을 받아오지 못했을 때 호출되는 콜백입니다.
-        /// </summary>
-        /// <param name="error">오류 메시지</param>
         private void OnFetchError(string error)
         {
-            Debug.LogError("[RoomListManager] 방 목록 가져오기 실패: " + error);
+            Debug.LogError("[RoomListManager] FetchRooms error: " + error);
         }
 
-        /// <summary>
-        /// RoomItem 프리팹을 인스턴스화하여, 방 정보를 표시하고 RoomApiManager 참조를 설정합니다.
-        /// </summary>
-        /// <param name="roomInfo">방 정보</param>
         private void CreateRoomItem(AvailableRoomResponse roomInfo)
         {
-            GameObject itemObj = Instantiate(roomItemPrefab, contentParent);
-            RoomItem roomItem = itemObj.GetComponent<RoomItem>();
-            if (roomItem != null)
+            if (roomItemPrefab == null)
             {
-                // RoomItem의 Setup 메서드를 통해 UI 갱신
-                roomItem.Setup(roomResponse: roomInfo);
-                // 방 참가 등의 API 호출에 사용할 RoomApiManager 연결
-                roomItem.roomApiManager = roomApiManager;
+                Debug.LogError("[RoomListManager] roomItemPrefab이 할당되지 않았습니다!");
+                return;
+            }
+            Debug.Log($"[RoomListManager] Instantiating roomItemPrefab: {roomItemPrefab.name}");
+            var item = Instantiate(roomItemPrefab, contentParent);
+            Debug.Log($"[RoomListManager] roomItemInst created: {item.name}");
+
+            var ri = item.GetComponent<RoomItem>();
+            if (ri != null)
+            {
+                ri.Setup(roomResponse: roomInfo);
+                Debug.Log($"[RoomListManager] RoomItem.Setup completed for room {roomInfo.room_number}");
             }
             else
             {
-                Debug.LogError("[RoomListManager] RoomItem 컴포넌트를 찾을 수 없습니다.");
+                Debug.LogError("[RoomListManager] RoomItem component missing on instantiated object!");
             }
         }
     }

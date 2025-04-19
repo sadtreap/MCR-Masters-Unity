@@ -145,12 +145,14 @@ namespace MCRGame.UI
 
         public void clear()
         {
-            if (tileObjects == null){
+            if (tileObjects == null)
+            {
                 return;
             }
             foreach (GameObject tileObj in tileObjects)
             {
-                if (tileObj == null){
+                if (tileObj == null)
+                {
                     continue;
                 }
                 Destroy(tileObj);
@@ -493,7 +495,7 @@ namespace MCRGame.UI
             GameObject tileObj = tileObjects[idx];
 
             // 2) GameHand 데이터에서도 해당 타일 제거
-            gameHand.ApplyDiscard(tile); // :contentReference[oaicite:1]{index=1}
+            gameHand.ApplyDiscard(tile);
 
             // 3) UI 리스트에서 즉시 제거 및 오브젝트 파괴
             tileObjects.RemoveAt(idx);
@@ -527,6 +529,8 @@ namespace MCRGame.UI
         }
         private IEnumerator ProcessCallUI(CallBlockData cbData)
         {
+            Debug.Log($"[GameHandManager] ProcessCallUI 시작 → Type={cbData.Type}, FirstTile={cbData.FirstTile}");
+
             // 1) 제거할 GameTile 목록 계산
             List<GameTile> removeTiles = new List<GameTile>();
             switch (cbData.Type)
@@ -558,25 +562,44 @@ namespace MCRGame.UI
                     removeTiles.Add(cbData.FirstTile);
                     break;
             }
+            Debug.Log($"[GameHandManager] 제거할 타일 목록: {string.Join(", ", removeTiles)}");
 
+            if (cbData.Type == CallBlockType.SHOMIN_KONG)
+            {
+                tsumoTile = null;
+            }
+            
             // 2) removeTiles에 있는 각 타일마다, tileObjects에서 해당 타일(이름이 같은 항목)을 찾아서 제거
             foreach (var gt in removeTiles)
             {
                 string name = gt.ToCustomString();
+                Debug.Log($"[GameHandManager] 처리 중 타일: {gt} → 오브젝트 이름('{name}') 찾기");
                 int idx = tileObjects.FindIndex(go => go.name == name);
                 if (idx >= 0)
                 {
+                    Debug.Log($"[GameHandManager] 타일 오브젝트 발견: index={idx}, name={name}");
                     GameObject go = tileObjects[idx];
-                    if (go == tsumoTile){
+                    if (go == tsumoTile)
+                    {
+                        Debug.Log("[GameHandManager] 이 타일은 tsumoTile 이므로 tsumoTile 레퍼런스 초기화");
                         tsumoTile = null;
                     }
                     tileObjects.RemoveAt(idx);
                     Destroy(go);
+                    Debug.Log($"[GameHandManager] 타일 오브젝트 제거 완료: {name} (남은 객체 수: {tileObjects.Count})");
+                }
+                else
+                {
+                    Debug.LogWarning($"[GameHandManager] tileObjects에서 '{name}' 타일 오브젝트를 찾지 못함");
                 }
             }
+
             // 3) 남은 tileObjects를 애니메이션으로 재배치
+            Debug.Log("[GameHandManager] AnimateReposition 호출 전");
             yield return StartCoroutine(AnimateReposition());
+            Debug.Log($"[GameHandManager] ProcessCallUI 완료 → 최종 남은 타일 개수: {tileObjects.Count}");
         }
+
 
         private IEnumerator AnimateReposition()
         {
