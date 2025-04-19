@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using MCRGame.Game;
+using MCRGame.Common;
 
 namespace MCRGame.Net
 {
@@ -11,11 +12,11 @@ namespace MCRGame.Net
         public string RoomId { get; private set; }
         public string RoomTitle { get; private set; }
 
-        public RoomUserData HostUser { get; private set; }
-        public int HostSlotIndex { get; private set; }  // 호스트의 슬롯 인덱스 (0~3)
+        public RoomUserData HostUser { get; set; }
+        public int HostSlotIndex { get; set; }  // 호스트의 슬롯 인덱스 (0~3)
 
         // 총 플레이어 배열 (호스트 포함, 길이 4)
-        public RoomUserData[] Players { get; private set; } = new RoomUserData[4];
+        public RoomUserData[] Players { get; set; } = new RoomUserData[4];
         public int mySlotIndex = 0;
 
         private void Awake()
@@ -31,6 +32,31 @@ namespace MCRGame.Net
             }
         }
 
+        /// <summary>
+        /// 호스트가 변경되었을 때 호출합니다.
+        /// Players 배열에서 새 호스트를 찾아 HostUser, HostSlotIndex를 갱신합니다.
+        /// </summary>
+        public void OnHostChanged(string newHostUid)
+        {
+            int prevHostSlotIndex = HostSlotIndex;
+            for (int i = 0; i < Players.Length; i++)
+            {
+                var user = Players[i];
+                if (user != null && user.uid == newHostUid)
+                {
+                    if (HostSlotIndex == i){
+                        return;
+                    }
+                    HostUser = user;
+                    HostSlotIndex = i;
+                    Players[prevHostSlotIndex] = null;
+                    Debug.Log($"[RoomDataManager] Host changed to {user.nickname} ({user.uid}) at slot {i}");
+                    return;
+                }
+            }
+
+            Debug.LogWarning($"[RoomDataManager] OnHostChanged: uid '{newHostUid}' not found in Players.");
+        }
         public void SetRoomInfo(string roomId, string roomTitle, RoomUserData hostUser, int hostSlotIndex)
         {
             RoomId = roomId;

@@ -16,6 +16,8 @@ public class RoomCreationController : MonoBehaviour
         {
             makeRoomButton.onClick.AddListener(OnClickMakeRoom);
         }
+        roomApiManager = RoomApiManager.Instance;
+        sceneTransition = RoomSceneTransition.Instance;
     }
 
     private void OnClickMakeRoom()

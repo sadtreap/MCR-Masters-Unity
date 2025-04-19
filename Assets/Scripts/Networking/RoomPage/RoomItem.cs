@@ -137,7 +137,7 @@ namespace MCRGame.UI
                         Debug.Log($"[RoomItem] 현재 플레이어 정보 저장: {currentPlayer.nickname}, slot_index: {currentPlayer.slot_index}, isReady: {currentPlayer.isReady}");
 
                         Debug.Log("[RoomItem] 방 정보 검증 완료. RoomScene으로 전환합니다.");
-                        SceneManager.LoadScene("RoomScene");
+                        SceneManager.LoadScene("RoomScene", LoadSceneMode.Single);
                     }
                     else
                     {

@@ -27,5 +27,7 @@ namespace MCRGame.Net
         GAME_STARTED,
         [EnumMember(Value = "error")]
         ERROR,
+        [EnumMember(Value = "user_list")]
+        USER_LIST,
     }
 }

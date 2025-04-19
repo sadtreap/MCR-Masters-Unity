@@ -3,18 +3,56 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.Networking;
 using MCRGame.Net;
+using System.Linq;
 
 namespace MCRGame.Net
 {
-    /// <summary>
-    /// RoomApiManager는 방 관련 API 호출(방 목록 조회, 방 참가, 방 생성)을 일원화합니다.
-    /// PlayerDataManager에 저장된 토큰을 사용하여 인증 헤더를 설정합니다.
-    /// </summary>
     public class RoomApiManager : MonoBehaviour
     {
         // CoreServerConfig를 사용하여 기본 방 URL 구성 (예: http://localhost:8000/api/v1/room)
         private string baseRoomUrl = CoreServerConfig.GetHttpUrl("/room");
+        public static RoomApiManager Instance { get; private set; }
 
+        private void Awake()
+        {
+            // 싱글톤 인스턴스 관리
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+
+            // URL 초기화
+            baseRoomUrl = CoreServerConfig.GetHttpUrl("/room");
+        }
+
+
+        public IEnumerator FetchRoomUsers(
+            string roomNumber,
+            Action<RoomUsersResponse> onSuccess,
+            Action<string> onError
+        )
+        {
+            string url = $"{baseRoomUrl}/{roomNumber}/users";
+            using var req = UnityWebRequest.Get(url);
+            req.SetRequestHeader("Content-Type", "application/json");
+            req.SetRequestHeader("Authorization", $"Bearer {PlayerDataManager.Instance.AccessToken}");
+            req.certificateHandler = new BypassCertificateHandler();
+
+            yield return req.SendWebRequest();
+            if (req.result == UnityWebRequest.Result.Success)
+            {
+                // 서버가 { "host_uid": "...", "users": [ ... ] } 구조로 응답
+                var data = JsonUtility.FromJson<RoomUsersResponse>(req.downloadHandler.text);
+                onSuccess?.Invoke(data);
+            }
+            else
+            {
+                onError?.Invoke(req.error);
+            }
+        }
 
         /// <summary>
         /// 서버에서 방 목록을 가져옵니다.
@@ -48,6 +86,36 @@ namespace MCRGame.Net
                     Debug.LogError("[RoomApiManager] FetchRooms failed: " + request.error);
                     onError?.Invoke(request.error);
                 }
+            }
+        }
+
+        public IEnumerator LeaveRoom(string roomId, Action<BaseResponse> onSuccess, Action<string> onError)
+        {
+            if (!int.TryParse(roomId, out int roomNumber))
+            {
+                onError?.Invoke("Invalid room number");
+                yield break;
+            }
+
+            string url = $"{baseRoomUrl}/{roomNumber}/leave";
+
+            // --- WWWForm 을 이용한 POST 호출 ---
+            var form = new WWWForm();
+            using var request = UnityWebRequest.Post(url, form);
+            // 인증 헤더만 따로 설정
+            request.SetRequestHeader("Authorization", $"Bearer {PlayerDataManager.Instance.AccessToken}");
+            request.certificateHandler = new BypassCertificateHandler();
+
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                var resp = JsonUtility.FromJson<BaseResponse>(request.downloadHandler.text);
+                onSuccess?.Invoke(resp);
+            }
+            else
+            {
+                onError?.Invoke(request.error);
             }
         }
 

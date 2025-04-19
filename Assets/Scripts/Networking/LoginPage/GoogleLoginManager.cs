@@ -5,22 +5,6 @@ using UnityEngine.SceneManagement;
 
 namespace MCRGame.Net
 {
-    [System.Serializable]
-    public class AuthUrlResponse
-    {
-        public string auth_url;
-        public string session_id;
-    }
-
-    [System.Serializable]
-    public class TokenResponse
-    {
-        public string access_token;
-        public string refresh_token;
-        public bool is_new_user;
-        public string token_type;
-    }
-
     public class GoogleLoginManager : MonoBehaviour
     {
         private string backendLoginUrl = CoreServerConfig.GetHttpUrl("/auth/login/google");
@@ -34,6 +18,7 @@ namespace MCRGame.Net
         /// </summary>
         public void OnGoogleLoginClick()
         {
+            Debug.Log($"login url: {backendLoginUrl}");
             StartCoroutine(RequestGoogleAuthUrl());
         }
 
@@ -115,7 +100,7 @@ namespace MCRGame.Net
             PlayerDataManager.Instance.SetTokenData(token.access_token, token.refresh_token, token.is_new_user);
 
             // 로그인 완료 후 로비 씬으로 전환 (LobbyScene이 Build Settings에 추가되어 있어야 합니다)
-            SceneManager.LoadScene("LobbyScene");
+            SceneManager.LoadScene("LobbyScene", LoadSceneMode.Single);
         }
     }
 }
