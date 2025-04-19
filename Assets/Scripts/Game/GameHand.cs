@@ -141,26 +141,34 @@ namespace MCRGame.Game
             TsumoTile = null;
         }
 
-        // 호출(Call) 블록 적용: 단순히 내부 데이터에 등록합니다.
         public void ApplyCall(CallBlockData cbData)
         {
-            switch (cbData.Type)
+            var dataCopy = new CallBlockData(
+                cbData.Type,
+                cbData.FirstTile,
+                cbData.SourceSeat,
+                cbData.SourceTileIndex
+            );
+
+            switch (dataCopy.Type)
             {
                 case CallBlockType.CHII:
-                    ApplyChii(cbData);
+                    ApplyChii(dataCopy);
                     break;
                 case CallBlockType.PUNG:
-                    ApplyPung(cbData);
+                    ApplyPung(dataCopy);
                     break;
                 case CallBlockType.AN_KONG:
-                    ApplyAnKong(cbData);
+                    ApplyAnKong(dataCopy);
                     break;
                 case CallBlockType.DAIMIN_KONG:
-                    ApplyDaiminKong(cbData);
+                    ApplyDaiminKong(dataCopy);
                     break;
                 case CallBlockType.SHOMIN_KONG:
-                    ApplyShominKong(cbData);
+                    ApplyShominKong(dataCopy);
                     break;
+                default:
+                    throw new InvalidOperationException($"Unsupported call type: {dataCopy.Type}");
             }
         }
 
@@ -254,10 +262,9 @@ namespace MCRGame.Game
             {
                 throw new InvalidOperationException("Cannot apply shominkong: hand doesn't have valid pung block");
             }
-            RemoveTiles(cbData.FirstTile, 1);
             targetData.Type = CallBlockType.SHOMIN_KONG;
+            RemoveTiles(cbData.FirstTile, 1);
             TsumoTile = null;
-            CallBlockData.Add(targetData);
         }
 
         public List<GameAction> GetPossibleChiiGameActions(RelativeSeat priority, WinningConditions winningCondition)

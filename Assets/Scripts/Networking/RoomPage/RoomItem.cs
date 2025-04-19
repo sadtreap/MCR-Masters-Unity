@@ -16,8 +16,6 @@ namespace MCRGame.UI
         // 내부적으로 AvailableRoomResponse 데이터를 보관
         private AvailableRoomResponse roomData;
 
-        // RoomApiManager 참조 (API 호출 담당)
-        public RoomApiManager roomApiManager;
 
         /// <summary>
         /// AvailableRoomResponse 데이터를 받아 RoomItem UI를 초기화합니다.
@@ -38,10 +36,10 @@ namespace MCRGame.UI
         {
             Debug.Log($"[RoomItem] Clicked room: {roomData.room_number} - {roomData.name}");
 
-            if (roomApiManager != null)
+            if (RoomApiManager.Instance != null)
             {
                 // roomData.room_number를 문자열로 변환하여 API 호출
-                StartCoroutine(roomApiManager.JoinRoom(roomData.room_number.ToString(), (RoomResponse joinResponse) =>
+                StartCoroutine(RoomApiManager.Instance.JoinRoom(roomData.room_number.ToString(), (RoomResponse joinResponse) =>
                 {
                     if (joinResponse != null)
                     {
@@ -137,7 +135,7 @@ namespace MCRGame.UI
                         Debug.Log($"[RoomItem] 현재 플레이어 정보 저장: {currentPlayer.nickname}, slot_index: {currentPlayer.slot_index}, isReady: {currentPlayer.isReady}");
 
                         Debug.Log("[RoomItem] 방 정보 검증 완료. RoomScene으로 전환합니다.");
-                        SceneManager.LoadScene("RoomScene");
+                        SceneManager.LoadScene("RoomScene", LoadSceneMode.Single);
                     }
                     else
                     {

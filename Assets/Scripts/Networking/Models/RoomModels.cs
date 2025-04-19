@@ -61,4 +61,10 @@ namespace MCRGame.Net
         public int slot_index;
         public bool isReady;
     }
+    [Serializable]
+    public class RoomUsersResponse
+    {
+        public string host_uid;
+        public RoomUserData[] users;
+    }
 }

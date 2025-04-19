@@ -14,6 +14,7 @@ namespace MCRGame.Net
 
         // 단일 버튼: host이면 "Start", 게스트이면 "Ready"를 표시
         public Button actionButton;
+        public Button backButton;
 
         // 모든 플레이어의 Ready 상태를 나타내는 UI Image 배열 (길이 4)
         public Image[] readyIndicators;
@@ -58,6 +59,29 @@ namespace MCRGame.Net
                 if (roomNumberText != null)
                     roomNumberText.text = RoomDataManager.Instance.RoomId;
             }
+
+            StartCoroutine(
+                RoomApiManager.Instance.FetchRoomUsers(
+                    RoomDataManager.Instance.RoomId,
+                    resp =>  // 이제 RoomUsersResponse 타입으로 받습니다
+                    {
+                        // 1) 호스트 UID 갱신 (RoomDataManager에 맞는 메서드로 교체하세요)
+                        RoomDataManager.Instance.OnHostChanged(resp.host_uid);
+
+                        // 2) 유저 리스트 갱신
+                        foreach (var u in resp.users)
+                            RoomDataManager.Instance.AddOrUpdateUser(u);
+
+                        // 3) UI 업데이트
+                        UpdatePlayerUI();
+                    },
+                    err => Debug.LogError("FetchRoomUsers failed: " + err)
+                )
+            );
+
+
+            // 2) 뒤로가기 버튼 리스너
+            backButton.onClick.AddListener(OnBackButton);
 
             // 현재 플레이어가 host인지 결정 (uid 비교)
             if (PlayerDataManager.Instance != null && RoomDataManager.Instance != null)
@@ -124,6 +148,63 @@ namespace MCRGame.Net
                 roomWS.OnWebSocketConnected = OnWebSocketConnectedHandler;
             }
         }
+
+
+        /// <summary> 호스트 변경 알림 </summary>
+        public void OnHostChanged(string newHostUid)
+        {
+            var rdm = RoomDataManager.Instance;
+            // HostSlotIndex 갱신
+            for (int i = 0; i < rdm.Players.Length; i++)
+            {
+                if (rdm.Players[i]?.uid == newHostUid)
+                {
+                    rdm.HostUser = rdm.Players[i];
+                    rdm.HostSlotIndex = i;
+                    break;
+                }
+            }
+            // isHost 플래그 및 버튼 텍스트/활성화 갱신
+            bool nowHost = PlayerDataManager.Instance.Uid == newHostUid;
+            if (nowHost)
+            {
+                actionButton.GetComponentInChildren<Text>().text = "Start";
+                actionButton.interactable = playerReady.All(r => r);
+            }
+            else
+            {
+                actionButton.GetComponentInChildren<Text>().text = "Ready";
+                actionButton.interactable = true;
+            }
+        }
+
+        // RoomManager.cs
+        private void OnBackButton()
+        {
+            // WS로 leave 전송 삭제
+            // await roomWS.SendLeaveAsync();
+
+            // 대신 REST API 호출
+            StartCoroutine(
+                RoomApiManager.Instance.LeaveRoom(
+                    RoomDataManager.Instance.RoomId,
+                    onSuccess: resp =>
+                    {
+                        Debug.Log("[RoomManager] 서버에서 방 나가기 성공: " + resp.message);
+                        // 씬 전환
+                        SceneManager.LoadScene("RoomListScene");
+                    },
+                    onError: err =>
+                    {
+                        Debug.LogError("[RoomManager] 서버에서 방 나가기 실패: " + err);
+                        // 그래도 방 리스트로 돌아가도록
+                        SceneManager.LoadScene("RoomListScene");
+                    }
+                )
+            );
+        }
+
+
 
         // WebSocket 연결 완료 시 호출되는 콜백 처리
         private void OnWebSocketConnectedHandler()

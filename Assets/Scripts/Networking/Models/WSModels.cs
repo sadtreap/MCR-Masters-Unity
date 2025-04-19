@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace MCRGame.Net
@@ -89,5 +90,27 @@ namespace MCRGame.Net
     {
         [JsonProperty("game_url")]
         public string GameUrl { get; set; }
+    }
+
+    // 방에 남아있는 유저 하나의 정보 (RoomUserResponse 매핑)
+    public class WSUserData
+    {
+        [JsonProperty("nickname")]
+        public string Nickname { get; set; }
+
+        [JsonProperty("user_uid")]
+        public string UserUid { get; set; }
+
+        [JsonProperty("is_ready")]
+        public bool IsReady { get; set; }
+
+        [JsonProperty("slot_index")]
+        public int SlotIndex { get; set; }
+    }
+
+    public class WSUserListData
+    {
+        [JsonProperty("host_uid")] public string HostUid { get; set; }
+        [JsonProperty("users")] public WSUserData[] Users { get; set; }
     }
 }

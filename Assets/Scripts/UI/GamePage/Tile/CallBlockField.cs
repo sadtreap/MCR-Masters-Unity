@@ -46,20 +46,30 @@ namespace MCRGame.UI
         {
             if (data.Type == CallBlockType.SHOMIN_KONG)
             {
+                Debug.Log($"[CallBlockField] SHOMIN_KONG 처리 시작 - FirstTile: {data.FirstTile}");
+
                 foreach (var call_block in callBlocks)
                 {
                     CallBlock cb = call_block.GetComponent<CallBlock>();
-                    if (cb != null)
+                    if (cb == null)
                     {
-                        if (cb.Data.Type == CallBlockType.PUNG && cb.Data.FirstTile == data.FirstTile)
-                        {
-                            cb.ApplyShominKong();
-                            break;
-                        }
+                        Debug.LogWarning("[CallBlockField] call_block에 CallBlock 컴포넌트가 없습니다.");
+                        continue;
+                    }
+
+                    Debug.Log($"[CallBlockField] 검사 중 - cb.Data.Type: {cb.Data.Type}, cb.Data.FirstTile: {cb.Data.FirstTile}");
+                    if (cb.Data.Type == CallBlockType.PUNG && cb.Data.FirstTile == data.FirstTile)
+                    {
+                        Debug.Log($"[CallBlockField] 대상 PUNG 블록 발견 (FirstTile={data.FirstTile}) → ApplyShominKong 호출");
+                        cb.ApplyShominKong();
+                        break;
                     }
                 }
+
+                Debug.Log("[CallBlockField] SHOMIN_KONG 처리 종료");
                 return;
             }
+
             // 1) 블록 GameObject 생성 및 부모에 추가
             GameObject callBlockObj = new GameObject("CallBlock");
             callBlockObj.transform.SetParent(transform, false);
