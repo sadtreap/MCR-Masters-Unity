@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using MCRGame.Game;
 using MCRGame.Common;
+using UnityEngine.UIElements;
 
 namespace MCRGame.Net
 {
@@ -65,6 +66,7 @@ namespace MCRGame.Net
             HostSlotIndex = hostSlotIndex;
             Players = new RoomUserData[4];
             Players[hostSlotIndex] = hostUser;
+            Players[hostSlotIndex].isReady = true;
             Debug.Log($"[RoomDataManager] Room info set: {roomId}, {roomTitle}, Host: {hostUser.nickname} ({hostUser.uid}) at slot {hostSlotIndex}");
         }
 
@@ -76,6 +78,7 @@ namespace MCRGame.Net
             HostSlotIndex = hostSlotIndex;
             Players = new RoomUserData[4];
             Players[hostSlotIndex] = hostUser;
+            Players[hostSlotIndex].isReady = true;
             if (users != null)
             {
                 foreach (var user in users)
@@ -141,13 +144,7 @@ namespace MCRGame.Net
                 return;
             if (user.slot_index >= 0 && user.slot_index < Players.Length)
             {
-                Players[user.slot_index] = user;
-                RoomManager roomManagerInstance = FindFirstObjectByType<RoomManager>();
-                if (roomManagerInstance != null)
-                {
-                    roomManagerInstance.UpdatePlayerReadyState(user.uid, user.isReady);
-                }
-                Debug.Log($"[RoomDataManager] Updated user at slot {user.slot_index}: {user.nickname}");
+                Players[user.slot_index] = new RoomUserData{uid=user.uid, isReady=user.isReady, nickname=user.nickname, slot_index=user.slot_index};
             }
             else
             {

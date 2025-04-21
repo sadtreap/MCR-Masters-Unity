@@ -1,70 +1,104 @@
 using System;
+using Newtonsoft.Json;
 
 namespace MCRGame.Net
 {
     [Serializable]
-    public class RoomUserResponse
-    {
-        public string uid;
-        public string nickname;
-        public bool is_ready;
-        public int slot_index; // 추가된 필드
-    }
-
-    [Serializable]
     public class AvailableRoomResponse
     {
+        [JsonProperty("name")]
         public string name;
+
+        [JsonProperty("room_number")]
         public int room_number;
+
+        [JsonProperty("max_users")]
         public int max_users;
+
+        [JsonProperty("current_users")]
         public int current_users;
+
+        [JsonProperty("host_uid")]
         public string host_uid;
+
+        [JsonProperty("host_nickname")]
         public string host_nickname;
-        public RoomUserResponse[] users;
+
+        [JsonProperty("users")]
+        public RoomUserData[] users;
     }
 
     [Serializable]
     public class AvailableRoomResponseList
     {
+        [JsonProperty("rooms")]
         public AvailableRoomResponse[] rooms;
     }
 
     [Serializable]
     public class RoomResponse
     {
+        [JsonProperty("name")]
         public string name;
+
+        [JsonProperty("room_number")]
         public int room_number;
+
+        [JsonProperty("slot_index")]
         public int slot_index;
     }
 
     [Serializable]
     public class CreateRoomResponse
     {
+        [JsonProperty("name")]
         public string name;
+
+        [JsonProperty("room_number")]
         public int room_number;
+
+        [JsonProperty("slot_index")]
         public int slot_index;
     }
 
     [Serializable]
     public class RoomData
     {
+        [JsonProperty("roomId")]
         public string roomId;
+
+        [JsonProperty("roomTitle")]
         public string roomTitle;
+
+        [JsonProperty("roomInfo")]
         public string roomInfo;
     }
 
     [Serializable]
     public class RoomUserData
     {
-        public string uid;
+        
+        [JsonProperty("nickname")]
         public string nickname;
-        public int slot_index;
+        [JsonProperty("uid")]
+        public string uid;
+
+        [JsonProperty("is_ready")]
         public bool isReady;
+
+        [JsonProperty("slot_index")]
+        public int slot_index;
+
+        
     }
+
     [Serializable]
     public class RoomUsersResponse
     {
+        [JsonProperty("host_uid")]
         public string host_uid;
+
+        [JsonProperty("users")]
         public RoomUserData[] users;
     }
 }

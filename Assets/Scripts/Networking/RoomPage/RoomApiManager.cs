@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.Networking;
 using MCRGame.Net;
 using System.Linq;
+using Newtonsoft.Json;
 
 namespace MCRGame.Net
 {
@@ -28,12 +29,11 @@ namespace MCRGame.Net
             baseRoomUrl = CoreServerConfig.GetHttpUrl("/room");
         }
 
-
         public IEnumerator FetchRoomUsers(
-            string roomNumber,
-            Action<RoomUsersResponse> onSuccess,
-            Action<string> onError
-        )
+                   string roomNumber,
+                   Action<RoomUsersResponse> onSuccess,
+                   Action<string> onError
+               )
         {
             string url = $"{baseRoomUrl}/{roomNumber}/users";
             using var req = UnityWebRequest.Get(url);
@@ -42,14 +42,25 @@ namespace MCRGame.Net
             req.certificateHandler = new BypassCertificateHandler();
 
             yield return req.SendWebRequest();
+
             if (req.result == UnityWebRequest.Result.Success)
             {
-                // 서버가 { "host_uid": "...", "users": [ ... ] } 구조로 응답
-                var data = JsonUtility.FromJson<RoomUsersResponse>(req.downloadHandler.text);
-                onSuccess?.Invoke(data);
+                try
+                {
+                    // JsonConvert로 바로 파싱
+                    var json = req.downloadHandler.text;
+                    var data = JsonConvert.DeserializeObject<RoomUsersResponse>(json);
+                    onSuccess?.Invoke(data);
+                }
+                catch (JsonException ex)
+                {
+                    Debug.LogError($"[RoomApiManager] JSON 파싱 실패: {ex.Message}");
+                    onError?.Invoke($"파싱 오류: {ex.Message}");
+                }
             }
             else
             {
+                Debug.LogError($"[RoomApiManager] FetchRoomUsers 실패: {req.error}");
                 onError?.Invoke(req.error);
             }
         }

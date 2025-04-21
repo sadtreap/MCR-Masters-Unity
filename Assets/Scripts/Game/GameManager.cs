@@ -172,7 +172,7 @@ namespace MCRGame.Game
         /// <summary>
         /// TileManager 클릭 시 호출: 서버로 검증 요청
         /// </summary>
-        public async void RequestDiscard(GameTile tile, bool is_tsumogiri)
+        public void RequestDiscard(GameTile tile, bool is_tsumogiri)
         {
             var payload = new
             {
@@ -183,7 +183,7 @@ namespace MCRGame.Game
                     is_tsumogiri,
                 }
             };
-            await GameWS.Instance.SendGameEventAsync(GameWSActionType.GAME_EVENT, payload);
+            GameWS.Instance.SendGameEvent(GameWSActionType.GAME_EVENT, payload);
         }
         public void UpdateActionId(int actionId)
         {
@@ -564,11 +564,11 @@ namespace MCRGame.Game
         {
             Debug.Log($"액션 선택: {action.Type} / 타일: {action.Tile}");
             // TODO: 선택된 action_id와 action.Type, action.Tile 서버 전송
-            _ = SendSelectedAction(action: action);
+            SendSelectedAction(action: action);
             ClearActionUI();
         }
 
-        private async Task SendSelectedAction(GameAction action)
+        private void SendSelectedAction(GameAction action)
         {
             var payload = new
             {
@@ -576,7 +576,7 @@ namespace MCRGame.Game
                 action_tile = action.Tile,
                 action_id = currentActionId,
             };
-            await GameWS.Instance.SendGameEventAsync(action: GameWSActionType.RETURN_ACTION, payload: payload);
+            GameWS.Instance.SendGameEvent(action: GameWSActionType.RETURN_ACTION, payload: payload);
         }
 
         private void OnSkipButtonClicked()
@@ -586,7 +586,7 @@ namespace MCRGame.Game
             SkipAction.Type = GameActionType.SKIP;
             SkipAction.Tile = GameTile.M1;
             SkipAction.SeatPriority = RelativeSeat.SELF;
-            _ = SendSelectedAction(action: SkipAction);
+            SendSelectedAction(action: SkipAction);
             ClearActionUI();
         }
 
@@ -597,7 +597,7 @@ namespace MCRGame.Game
             SkipAction.Type = GameActionType.SKIP;
             SkipAction.Tile = GameTile.M1;
             SkipAction.SeatPriority = RelativeSeat.SELF;
-            _ = SendSelectedAction(action: SkipAction);
+            SendSelectedAction(action: SkipAction);
             ClearActionButtons();
         }
 
@@ -1137,7 +1137,7 @@ namespace MCRGame.Game
             }
             if (GameWS.Instance != null)
             {
-                _ = GameWS.Instance.SendGameEventAsync(GameWSActionType.GAME_EVENT, new
+                GameWS.Instance.SendGameEvent(GameWSActionType.GAME_EVENT, new
                 {
                     event_type = (int)GameEventType.INIT_FLOWER_OK,
                     data = new Dictionary<string, object>()
@@ -1316,7 +1316,7 @@ namespace MCRGame.Game
 
             if (GameWS.Instance != null)
             {
-                _ = GameWS.Instance.SendGameEventAsync(GameWSActionType.GAME_EVENT, new
+                GameWS.Instance.SendGameEvent(GameWSActionType.GAME_EVENT, new
                 {
                     event_type = (int)GameEventType.NEXT_ROUND_CONFIRM,
                     data = new Dictionary<string, object>()

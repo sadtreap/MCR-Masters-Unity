@@ -3076,19 +3076,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3271447174617306448, guid: cb7e8c3f78d46a343ad97c4391d6b499, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 0
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 3271447174617306448, guid: cb7e8c3f78d46a343ad97c4391d6b499, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0.5
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3271447174617306448, guid: cb7e8c3f78d46a343ad97c4391d6b499, type: 3}
       propertyPath: m_AnchorMin.x
-      value: 0
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 3271447174617306448, guid: cb7e8c3f78d46a343ad97c4391d6b499, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 0.5
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3271447174617306448, guid: cb7e8c3f78d46a343ad97c4391d6b499, type: 3}
       propertyPath: m_SizeDelta.x
@@ -3096,7 +3096,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3271447174617306448, guid: cb7e8c3f78d46a343ad97c4391d6b499, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 150
+      value: -930
       objectReference: {fileID: 0}
     - target: {fileID: 3271447174617306448, guid: cb7e8c3f78d46a343ad97c4391d6b499, type: 3}
       propertyPath: m_LocalPosition.x
@@ -3128,7 +3128,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3271447174617306448, guid: cb7e8c3f78d46a343ad97c4391d6b499, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 948
+      value: -11.997925
       objectReference: {fileID: 0}
     - target: {fileID: 3271447174617306448, guid: cb7e8c3f78d46a343ad97c4391d6b499, type: 3}
       propertyPath: m_AnchoredPosition.y
@@ -3148,7 +3148,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7482858479188336795, guid: cb7e8c3f78d46a343ad97c4391d6b499, type: 3}
       propertyPath: m_Color.a
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7865758812528628093, guid: cb7e8c3f78d46a343ad97c4391d6b499, type: 3}
       propertyPath: CanClick
