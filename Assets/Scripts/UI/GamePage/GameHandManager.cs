@@ -69,8 +69,8 @@ namespace MCRGame.UI
         void Awake()
         {
             haipaiRect = GetComponent<RectTransform>();
-            haipaiRect.anchorMin = new Vector2(0, 0.5f);
-            haipaiRect.anchorMax = new Vector2(0, 0.5f);
+            // haipaiRect.anchorMin = new Vector2(0, 0.5f);
+            // haipaiRect.anchorMax = new Vector2(0, 0.5f);
 
             tileObjects = new List<GameObject>();
             tsumoTile = null;

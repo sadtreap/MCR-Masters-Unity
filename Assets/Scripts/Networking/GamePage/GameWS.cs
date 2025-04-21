@@ -46,8 +46,8 @@ namespace MCRGame.Net
 
             // 2) WebGL 한계로 쿼리스트링으로 전달
             string url = $"{baseUrl}?user_id={Uri.EscapeDataString(uid)}" +
-                         $"&nickname={Uri.EscapeDataString(nick)}" +
-                         $"&authorization={Uri.EscapeDataString(token)}";
+                         $"&nickname={Uri.EscapeDataString(nick)}";
+                        // + $"&authorization={Uri.EscapeDataString(token)}";
 
             // 3) NativeWebSocket 사용
             websocket = new WebSocket(url);

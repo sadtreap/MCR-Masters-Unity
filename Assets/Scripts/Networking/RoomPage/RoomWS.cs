@@ -48,7 +48,7 @@ namespace MCRGame.Net
 
             // 3) 쿼리스트링에 토큰 전달
             string url = $"{baseUrl}?authorization={Uri.EscapeDataString(token)}";
-
+            Debug.Log($"[RoomWS] WebSocket URL: {url}");
             // 4) WebSocket 생성
             websocket = new WebSocket(url);
 
