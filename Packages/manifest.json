@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "com.psygames.unitywebsocket": "https://github.com/psygames/UnityWebSocket.git#upm",
+    "com.endel.nativewebsocket": "https://github.com/endel/NativeWebSocket.git#upm",
     "com.unity.collab-proxy": "2.7.1",
     "com.unity.connect.share": "4.2.3",
     "com.unity.feature.2d": "2.0.1",
@@ -18,7 +18,6 @@
     "com.unity.ugui": "2.0.0",
     "com.unity.visualscripting": "1.9.5",
     "com.veriorpies.parrelsync": "https://github.com/VeriorPies/ParrelSync.git?path=/ParrelSync",
-    "net.gree.unity-webview": "https://github.com/gree/unity-webview.git?path=/dist/package",
     "com.unity.modules.accessibility": "1.0.0",
     "com.unity.modules.ai": "1.0.0",
     "com.unity.modules.androidjni": "1.0.0",

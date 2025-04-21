@@ -1,11 +1,11 @@
 {
   "dependencies": {
-    "com.psygames.unitywebsocket": {
-      "version": "https://github.com/psygames/UnityWebSocket.git#upm",
+    "com.endel.nativewebsocket": {
+      "version": "https://github.com/endel/NativeWebSocket.git#upm",
       "depth": 0,
       "source": "git",
       "dependencies": {},
-      "hash": "369f2a56f68e7a133d3d1acfdc26d4693cd74497"
+      "hash": "1d8b49b3fee41c09a98141f1f1a5e4db47e14229"
     },
     "com.unity.2d.animation": {
       "version": "10.1.4",
@@ -394,13 +394,6 @@
       "source": "git",
       "dependencies": {},
       "hash": "610157ad762084380380148ba8ce14e266a6da97"
-    },
-    "net.gree.unity-webview": {
-      "version": "https://github.com/gree/unity-webview.git?path=/dist/package",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {},
-      "hash": "6a91003bdecaf03517bbb6c7234f8dd6109fdb54"
     },
     "com.unity.modules.accessibility": {
       "version": "1.0.0",

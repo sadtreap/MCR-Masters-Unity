@@ -1388,7 +1388,6 @@ MonoBehaviour:
   scrollViewPrefab: {fileID: 3663584431760380735, guid: 79139545dd34d7541920702ee2cb753d, type: 3}
   roomItemPrefab: {fileID: 8627749960711116994, guid: f089037df13d741e2abf59399a8a2a26, type: 3}
   refreshButton: {fileID: 101557531}
-  roomApiManager: {fileID: 5492391774464916348}
   refreshInterval: 5
 --- !u!224 &2029452798
 RectTransform:
@@ -1536,15 +1535,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6676124567886504681, guid: 7a43d3ee7e69ee140a328e5c22b5c84a, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 1204.723
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6676124567886504681, guid: 7a43d3ee7e69ee140a328e5c22b5c84a, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 822.94617
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6676124567886504681, guid: 7a43d3ee7e69ee140a328e5c22b5c84a, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -9.159669
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6676124567886504681, guid: 7a43d3ee7e69ee140a328e5c22b5c84a, type: 3}
       propertyPath: m_LocalRotation.w

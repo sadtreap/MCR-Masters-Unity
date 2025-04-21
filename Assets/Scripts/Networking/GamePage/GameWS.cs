@@ -1,7 +1,7 @@
 using System;
 using System.Text;
 using UnityEngine;
-using UnityWebSocket;    // psygames/UnityWebSocket
+using NativeWebSocket;
 using Newtonsoft.Json;
 using MCRGame.UI;
 using MCRGame.Game;
@@ -11,7 +11,7 @@ namespace MCRGame.Net
     public class GameWS : MonoBehaviour
     {
         public static GameWS Instance { get; private set; }
-        private WebSocket ws;
+        private WebSocket websocket;
 
         private void Awake()
         {
@@ -29,13 +29,13 @@ namespace MCRGame.Net
             Connect();
         }
 
-        private void Connect()
+        private async void Connect()
         {
             // 1) URL, 토큰 준비
             string baseUrl = GameServerConfig.GetWebSocketUrl();
             var pdm = PlayerDataManager.Instance;
-            string uid   = pdm?.Uid         ?? "";
-            string nick  = pdm?.Nickname    ?? "";
+            string uid = pdm?.Uid ?? "";
+            string nick = pdm?.Nickname ?? "";
             string token = pdm?.AccessToken ?? "";
 
             if (string.IsNullOrEmpty(token))
@@ -49,55 +49,57 @@ namespace MCRGame.Net
                          $"&nickname={Uri.EscapeDataString(nick)}" +
                          $"&authorization={Uri.EscapeDataString(token)}";
 
-            ws = new WebSocket(url);
+            // 3) NativeWebSocket 사용
+            websocket = new WebSocket(url);
 
-            // 3) 이벤트 핸들러 등록 (EventHandler<T> signature)
-            ws.OnOpen += OnOpenHandler;
-            ws.OnMessage += OnMessageHandler;
-            ws.OnError += OnErrorHandler;
-            ws.OnClose += OnCloseHandler;
+            websocket.OnOpen += () =>
+            {
+                Debug.Log("[GameWS] WebSocket connected!");
+            };
+
+            websocket.OnError += (e) =>
+            {
+                Debug.LogError("[GameWS] WebSocket Error: " + e);
+            };
+
+            websocket.OnClose += (e) =>
+            {
+                Debug.Log($"[GameWS] WebSocket Closed: {e}");
+            };
+
+            websocket.OnMessage += (bytes) =>
+            {
+                string msg = Encoding.UTF8.GetString(bytes);
+                Debug.Log("[GameWS] Received: " + msg);
+                try
+                {
+                    var wsMessage = JsonConvert.DeserializeObject<GameWSMessage>(msg);
+                    if (wsMessage != null && GameMessageMediator.Instance != null)
+                        GameMessageMediator.Instance.EnqueueMessage(wsMessage);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError("[GameWS] JSON deserialize error: " + ex);
+                }
+            };
 
             Debug.Log("[GameWS] Connecting to: " + url);
-            ws.ConnectAsync();
+            await websocket.Connect();
         }
 
-        private void OnOpenHandler(object sender, OpenEventArgs args)
+        private void Update()
         {
-            Debug.Log("[GameWS] WebSocket connected!");
-        }
-
-        private void OnMessageHandler(object sender, MessageEventArgs args)
-        {
-            string msg = Encoding.UTF8.GetString(args.RawData);
-            Debug.Log("[GameWS] Received: " + msg);
-            try
-            {
-                var wsMessage = JsonConvert.DeserializeObject<GameWSMessage>(msg);
-                if (wsMessage != null && GameMessageMediator.Instance != null)
-                    GameMessageMediator.Instance.EnqueueMessage(wsMessage);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError("[GameWS] JSON deserialize error: " + ex);
-            }
-        }
-
-        private void OnErrorHandler(object sender, ErrorEventArgs args)
-        {
-            Debug.LogError("[GameWS] WebSocket Error: " + args.Message);
-        }
-
-        private void OnCloseHandler(object sender, CloseEventArgs args)
-        {
-            Debug.Log($"[GameWS] WebSocket Closed: {args.Code} / {args.Reason}");
+#if !UNITY_WEBGL || UNITY_EDITOR
+            websocket.DispatchMessageQueue();
+#endif
         }
 
         /// <summary>
-        /// 서버가 기대하는 최상위 { event, data } 구조로 전송합니다.
+        /// 서버가 기대하는 { event, data } 구조로 전송합니다.
         /// </summary>
-        public void SendGameEvent(GameWSActionType action, object payload)
+        public async void SendGameEvent(GameWSActionType action, object payload)
         {
-            if (ws == null || ws.ReadyState != WebSocketState.Open)
+            if (websocket == null || websocket.State != WebSocketState.Open)
             {
                 Debug.LogWarning("[GameWS] WebSocket is not open; cannot send.");
                 return;
@@ -106,20 +108,20 @@ namespace MCRGame.Net
             var messageObj = new
             {
                 @event = action,
-                data   = payload
+                data = payload
             };
 
             string json = JsonConvert.SerializeObject(messageObj);
-            ws.SendAsync(json);
+            await websocket.SendText(json);
             Debug.Log("[GameWS] Sent: " + json);
         }
 
-        private void OnDestroy()
+        private async void OnDestroy()
         {
-            if (ws != null)
+            if (websocket != null)
             {
-                ws.CloseAsync();
-                ws = null;
+                await websocket.Close();
+                websocket = null;
             }
             Instance = null;
         }

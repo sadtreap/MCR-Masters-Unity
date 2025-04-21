@@ -1,9 +1,8 @@
 using System;
 using System.Text;
-using System.Collections;
+using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.UI;
-using UnityWebSocket;      // psygames/UnityWebSocket
+using NativeWebSocket;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -14,7 +13,7 @@ namespace MCRGame.Net
         public static RoomWS Instance { get; private set; }
         public int roomNumber = 1;
 
-        private WebSocket ws;
+        private WebSocket websocket;
         public event Action OnWebSocketConnected;
 
         private void Awake()
@@ -29,7 +28,7 @@ namespace MCRGame.Net
             OnWebSocketConnected += HandleOnConnected;
         }
 
-        private void Start()
+        private async void Start()
         {
             // 1) 방 번호 가져오기
             if (RoomDataManager.Instance != null &&
@@ -51,39 +50,44 @@ namespace MCRGame.Net
             string url = $"{baseUrl}?authorization={Uri.EscapeDataString(token)}";
 
             // 4) WebSocket 생성
-            ws = new WebSocket(url);
+            websocket = new WebSocket(url);
 
-            // 5) 이벤트 핸들러 등록 (EventHandler<...> 시그니처)
-            ws.OnOpen += (sender, e) =>
+            // 5) 이벤트 핸들러 등록
+            websocket.OnOpen += () =>
             {
                 Debug.Log("[RoomWS] WebSocket 연결 성공");
                 OnWebSocketConnected?.Invoke();
             };
 
-            ws.OnMessage += (sender, e) =>
+            websocket.OnError += (e) =>
             {
-                string msg = Encoding.UTF8.GetString(e.RawData);
+                Debug.LogError("[RoomWS] WebSocket Error: " + e);
+            };
+
+            websocket.OnClose += (e) =>
+            {
+                Debug.LogWarning($"[RoomWS] WebSocket closed: {e}");
+            };
+
+            websocket.OnMessage += (bytes) =>
+            {
+                var msg = Encoding.UTF8.GetString(bytes);
                 Debug.Log("[RoomWS] 수신: " + msg);
                 ProcessMessage(msg);
             };
 
-            ws.OnError += (sender, e) =>
-            {
-                Debug.LogError("[RoomWS] WebSocket Error: " + e.Message);
-            };
-
-            ws.OnClose += (sender, e) =>
-            {
-                Debug.LogWarning($"[RoomWS] WebSocket closed: {e.Code} / {e.Reason}");
-            };
-
             // 6) 연결 시도
             Debug.Log("[RoomWS] Connecting to: " + url);
-            ws.ConnectAsync();
+            await websocket.Connect();
         }
 
-        // psygames/UnityWebSocket 에는 WebSocketManager가 자동으로 Update() 호출해 줌
-        private void Update() { }
+        // NativeWebSocket은 매 프레임마다 DispatchMessageQueue 호출이 필요합니다
+        private void Update()
+        {
+#if !UNITY_WEBGL || UNITY_EDITOR
+            websocket?.DispatchMessageQueue();
+#endif
+        }
 
         private void HandleOnConnected()
         {
@@ -128,37 +132,28 @@ namespace MCRGame.Net
                     break;
                 case WSActionType.USER_READY_CHANGED:
                     {
-                        // resp.Data를 JObject로 캐스팅
                         var jobj = resp.Data as JObject;
                         if (jobj == null)
                         {
                             Debug.LogWarning("[RoomWS] USER_READY_CHANGED: Data가 JObject가 아닙니다.");
                             break;
                         }
-
-                        // 필드 직접 파싱
                         string uid = jobj["user_uid"]?.Value<string>() ?? "";
                         bool readyStatus = jobj["is_ready"]?.Value<bool>() ?? false;
                         Debug.Log($"[RoomWS] USER_READY_CHANGED 파싱: uid={uid}, is_ready={readyStatus}");
-
-                        // RoomManager에 전달
-                        var rm = FindAnyObjectByType<RoomManager>();
-                        if (rm != null)
-                            rm.UpdatePlayerReadyState(uid, readyStatus);
+                        FindAnyObjectByType<RoomManager>()?.UpdatePlayerReadyState(uid, readyStatus);
                         break;
                     }
                 case WSActionType.USER_JOINED:
                     {
                         var d = JsonConvert.DeserializeObject<WSUserJoinedData>(resp.Data.ToString());
-                        var rdm = RoomDataManager.Instance;
-                        if (rdm != null)
-                            rdm.AddOrUpdateUser(new RoomUserData
-                            {
-                                uid = d.UserUid,
-                                nickname = d.Nickname,
-                                isReady = d.IsReady,
-                                slot_index = d.SlotIndex
-                            });
+                        RoomDataManager.Instance?.AddOrUpdateUser(new RoomUserData
+                        {
+                            uid = d.UserUid,
+                            nickname = d.Nickname,
+                            isReady = d.IsReady,
+                            slot_index = d.SlotIndex
+                        });
                         FindAnyObjectByType<RoomManager>()?.UpdatePlayerUI();
                         break;
                     }
@@ -195,8 +190,7 @@ namespace MCRGame.Net
                         GameServerConfig.UpdateWebSocketConfig(d.GameUrl);
                         if (GameWS.Instance == null)
                             new GameObject("GameWS").AddComponent<GameWS>();
-                        UnityEngine.SceneManagement.SceneManager
-                            .LoadScene("GameScene", UnityEngine.SceneManagement.LoadSceneMode.Single);
+                        UnityEngine.SceneManagement.SceneManager.LoadScene("GameScene", UnityEngine.SceneManagement.LoadSceneMode.Single);
                         break;
                     }
                 default:
@@ -205,9 +199,7 @@ namespace MCRGame.Net
             }
         }
 
-        // ─── 페이로드 전송 메서드들 ───────────────────────────────────
-
-        public void SendLeave()
+        public async void SendLeave()
         {
             var msg = new WSMessage
             {
@@ -218,11 +210,11 @@ namespace MCRGame.Net
                 Timestamp = DateTime.UtcNow.ToString("o")
             };
             string json = JsonConvert.SerializeObject(msg);
-            ws.SendAsync(json);
+            await websocket.SendText(json);
             Debug.Log("[RoomWS] LEAVE 전송 완료");
         }
 
-        private void SendPong()
+        private async void SendPong()
         {
             var pong = new WSMessage
             {
@@ -233,10 +225,10 @@ namespace MCRGame.Net
                 Timestamp = DateTime.UtcNow.ToString("o")
             };
             string json = JsonConvert.SerializeObject(pong);
-            ws.SendAsync(json);
+            await websocket.SendText(json);
         }
 
-        public void SendReadyStatus(bool isReady)
+        public async void SendReadyStatus(bool isReady)
         {
             var msg = new WSMessage
             {
@@ -247,16 +239,16 @@ namespace MCRGame.Net
                 Timestamp = DateTime.UtcNow.ToString("o")
             };
             string json = JsonConvert.SerializeObject(msg);
-            ws.SendAsync(json);
+            await websocket.SendText(json);
             Debug.Log("[RoomWS] READY 전송 완료");
         }
 
-        private void OnDestroy()
+        private async void OnDestroy()
         {
-            if (ws != null)
+            if (websocket != null)
             {
-                ws.CloseAsync();
-                ws = null;
+                await websocket.Close();
+                websocket = null;
             }
             Instance = null;
         }
