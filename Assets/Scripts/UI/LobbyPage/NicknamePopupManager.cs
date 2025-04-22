@@ -1,76 +1,98 @@
 using UnityEngine;
 using UnityEngine.UI;
-using MCRGame.Net;
+using UnityEngine.Networking;
 using System.Collections;
+using MCRGame.Net;
 
 namespace MCRGame.UI
 {
     public class NicknamePopupManager : MonoBehaviour
     {
-        [Header("닉네임 팝업")]
-        public GameObject nickNamePopup;       // NickNamePopup 오브젝트
-        public InputField nicknameInputField;  // 팝업 내 InputField
-        public Button nameMakeButton;          // 팝업 내 "Make!" 버튼
+        [Header("UI References")]
+        [SerializeField] private GameObject popupPanel;          // 팝업 전체 Panel
+        [SerializeField] private InputField nicknameInput;       // 새 닉네임 입력창
+        [SerializeField] private Text currentNicknameText;       // 로비에 표시중인 닉네임 텍스트
+        [SerializeField] private Button confirmButton;           // 변경 확인 버튼
+        [SerializeField] private Text errorText;                 // 에러 메시지 표시용(Text)
 
-        [Header("테스트 버튼")]
-        public Button nicknameButton;          // 테스트용 버튼
+        [Header("Dependencies")]
+        [SerializeField] private PutNicknameApi putNicknameApi;  // 이전에 구현한 PUT API 컴포넌트
 
-        [Header("API 관리")]
-        public PutNicknameApi putNicknameApi;  // PutNicknameApi 스크립트를 에디터에서 할당
+        private void Awake()
+        {
+            // 버튼에 리스너 연결
+            confirmButton.onClick.AddListener(OnConfirmClicked);
+        }
 
         private void Start()
         {
-            // 테스트 버튼 이벤트 등록 (팝업 강제 오픈)
-            if (nicknameButton != null)
-                nicknameButton.onClick.AddListener(OnClickTestNicknameButton);
-
-            // 팝업 내 "Make!" 버튼 이벤트 등록 (닉네임 업데이트)
-            if (nameMakeButton != null)
-                nameMakeButton.onClick.AddListener(OnClickNameMakeButton);
-
             // new user인 경우에만 팝업을 자동으로 띄웁니다.
             if (PlayerDataManager.Instance != null && PlayerDataManager.Instance.IsNewUser)
             {
-                nickNamePopup.SetActive(true);
+                popupPanel.SetActive(true);
             }
         }
 
         /// <summary>
-        /// 테스트 버튼 클릭 시 닉네임 팝업을 표시합니다.
+        /// 팝업 닫기
         /// </summary>
-        private void OnClickTestNicknameButton()
+        public void ClosePopup()
         {
-            nickNamePopup.SetActive(true);
+            popupPanel.SetActive(false);
         }
 
         /// <summary>
-        /// 팝업 내 "Make!" 버튼 클릭 시 입력된 닉네임을 서버에 업데이트합니다.
+        /// 확인 버튼 클릭 시 호출
         /// </summary>
-        private void OnClickNameMakeButton()
+        private void OnConfirmClicked()
         {
-            string nickname = nicknameInputField.text.Trim();
-            if (string.IsNullOrEmpty(nickname))
+            string newNick = nicknameInput.text.Trim();
+            if (string.IsNullOrEmpty(newNick))
             {
-                Debug.Log("닉네임을 입력해주세요!");
+                errorText.text = "닉네임을 입력해주세요.";
                 return;
             }
+            // PUT /user/me/nickname
+            StartCoroutine(putNicknameApi.UpdateNickname(
+                newNick,
+                PlayerDataManager.Instance.AccessToken,
+                onSuccess: _ => StartCoroutine(FetchUserMe()), 
+                onError: err => errorText.text = $"업데이트 실패: {err}"
+            ));
+            ClosePopup();
+        }
 
-            // PutNicknameApi의 UpdateNickname 코루틴 호출
-            StartCoroutine(putNicknameApi.UpdateNickname(nickname, PlayerDataManager.Instance.AccessToken,
-                onSuccess: (response) =>
+        /// <summary>
+        /// PUT 성공 후 GET /user/me 해서 PlayerDataManager, UI 갱신
+        /// </summary>
+        private IEnumerator FetchUserMe()
+        {
+            string url = CoreServerConfig.GetHttpUrl("/user/me");
+            using (UnityWebRequest www = UnityWebRequest.Get(url))
+            {
+                www.SetRequestHeader("Authorization", $"Bearer {PlayerDataManager.Instance.AccessToken}");
+                www.certificateHandler = new BypassCertificateHandler();
+                yield return www.SendWebRequest();
+
+                if (www.result == UnityWebRequest.Result.Success)
                 {
-                    Debug.Log("[NicknamePopupManager] 닉네임 업데이트 성공: " + response);
-                    // 로컬에 닉네임 저장
-                    PlayerPrefs.SetString("Nickname", nickname);
-                    PlayerPrefs.Save();
+                    // JSON 파싱
+                    UserMeResponse userData = JsonUtility.FromJson<UserMeResponse>(www.downloadHandler.text);
+
+                    // PlayerDataManager에 저장
+                    PlayerDataManager.Instance.SetUserData(userData.uid, userData.nickname, userData.email);
+
+                    // 로비 UI에 반영
+                    currentNicknameText.text = userData.nickname;
+
                     // 팝업 닫기
-                    nickNamePopup.SetActive(false);
-                    Debug.Log($"닉네임 설정 완료: {nickname}");
-                },
-                onError: (error) =>
+                    ClosePopup();
+                }
+                else
                 {
-                    Debug.LogError("[NicknamePopupManager] 닉네임 업데이트 실패: " + error);
-                }));
+                    errorText.text = $"정보 조회 실패: {www.error}";
+                }
+            }
         }
     }
 }

@@ -1,5 +1,6 @@
+using System;
 using System.Linq;
-using System.Collections; // 코루틴 사용을 위한 네임스페이스 추가
+using System.Collections; // 코루틴 사용을 위한 네임스페이스
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -9,112 +10,78 @@ namespace MCRGame.Net
 {
     public class RoomManager : MonoBehaviour
     {
-        // 4명의 플레이어 Ready 상태 (Players 배열의 인덱스 기준; host는 RoomDataManager.Instance.HostSlotIndex)
-        public bool[] playerReady = new bool[4];
-
-        // 단일 버튼: host이면 "Start", 게스트이면 "Ready"를 표시
         public Button actionButton;
         public Button backButton;
-
-        // 모든 플레이어의 Ready 상태를 나타내는 UI Image 배열 (길이 4)
         public Image[] readyIndicators;
-
-        // RoomDataManager에 저장된 방 정보를 표시할 UI 텍스트 (RoomScene에서)
         public Text roomTitleText;
         public Text roomNumberText;
-
-        // 웹소켓 통신을 위한 RoomWS 인스턴스 (Inspector에서 할당)
         public RoomWS roomWS;
-
-        // 플레이어 별 닉네임 텍스트 배열 (길이 4; 인덱스 0: host, 1~3: 게스트)
         public Text[] playerNicknameTexts;
-        // 플레이어 별 캐릭터 이미지 배열 (길이 4)
         public Image[] playerCharacterImages;
-        // Inspector에서 할당할 기본 캐릭터 이미지
         public Sprite defaultCharacterSprite;
 
-        // 현재 플레이어가 host인지 여부 및 Ready 상태 (개별 변수 대신 RoomDataManager.Instance.mySlotIndex로 슬롯 참조)
         private bool isHost = false;
         private bool isReady = false;
-
-        // 추가: WebSocket 연결 상태 및 연결 전 Ready 버튼 클릭 여부를 추적
         private bool wsConnected = false;
         private bool clickedReadyBeforeWS = false;
+        private float _lastUIUpdateTime = -Mathf.Infinity;
 
         void Start()
         {
-            if (RoomDataManager.Instance == null)
-            {
-                // RoomDataManager 인스턴스가 없으면 기본값 host=인덱스 0
-                playerReady[0] = true;
-                for (int i = 1; i < playerReady.Length; i++)
-                    playerReady[i] = false;
-            }
-
-            // 방 정보 UI 업데이트 (방 제목, 방 번호)
+            // 방 제목/번호 표시
             if (RoomDataManager.Instance != null)
             {
-                if (roomTitleText != null)
-                    roomTitleText.text = RoomDataManager.Instance.RoomTitle;
-                if (roomNumberText != null)
-                    roomNumberText.text = RoomDataManager.Instance.RoomId;
+                roomTitleText.text = RoomDataManager.Instance.RoomTitle;
+                roomNumberText.text = RoomDataManager.Instance.RoomId;
             }
 
+            // 최초 사용자 목록 불러오기
             StartCoroutine(
                 RoomApiManager.Instance.FetchRoomUsers(
                     RoomDataManager.Instance.RoomId,
-                    resp =>  // 이제 RoomUsersResponse 타입으로 받습니다
+                    resp =>
                     {
-                        // 1) 호스트 UID 갱신 (RoomDataManager에 맞는 메서드로 교체하세요)
-                        RoomDataManager.Instance.OnHostChanged(resp.host_uid);
-
-                        // 2) 유저 리스트 갱신
                         foreach (var u in resp.users)
                             RoomDataManager.Instance.AddOrUpdateUser(u);
-
-                        // 3) UI 업데이트
+                        RoomDataManager.Instance.OnHostChanged(resp.host_uid);
+                        UpdateAllPlayerStatus();
                         UpdatePlayerUI();
                     },
                     err => Debug.LogError("FetchRoomUsers failed: " + err)
                 )
             );
 
-
-            // 2) 뒤로가기 버튼 리스너
             backButton.onClick.AddListener(OnBackButton);
 
-            // 현재 플레이어가 host인지 결정 (uid 비교)
+            // 내 호스트 여부 판단 및 초기 Players 세팅
             if (PlayerDataManager.Instance != null && RoomDataManager.Instance != null)
             {
                 isHost = PlayerDataManager.Instance.Uid == RoomDataManager.Instance.HostUser.uid;
-                Debug.Log($"IsHost: {isHost}");
+                var players = RoomDataManager.Instance.Players;
+
                 if (isHost)
                 {
-                    // host의 슬롯은 RoomDataManager.Instance.HostSlotIndex로 설정
-                    RoomUserData[] players = RoomDataManager.Instance.Players;
                     RoomDataManager.Instance.mySlotIndex = RoomDataManager.Instance.HostSlotIndex;
                     players[RoomDataManager.Instance.mySlotIndex] = new RoomUserData
                     {
                         uid = PlayerDataManager.Instance.Uid,
                         nickname = PlayerDataManager.Instance.Nickname,
-                        isReady = false,
+                        isReady = true,
                         slot_index = RoomDataManager.Instance.mySlotIndex
                     };
-                    playerReady[RoomDataManager.Instance.mySlotIndex] = true;
                     isReady = true;
                 }
                 else
                 {
-                    // 게스트: Players 배열에서 자신의 uid로 슬롯 찾기
-                    RoomUserData[] players = RoomDataManager.Instance.Players;
-                    if (RoomDataManager.Instance.mySlotIndex >= 0 && RoomDataManager.Instance.mySlotIndex < players.Length)
+                    int mySlot = RoomDataManager.Instance.mySlotIndex;
+                    if (mySlot >= 0 && mySlot < players.Length)
                     {
-                        players[RoomDataManager.Instance.mySlotIndex] = new RoomUserData
+                        players[mySlot] = new RoomUserData
                         {
                             uid = PlayerDataManager.Instance.Uid,
                             nickname = PlayerDataManager.Instance.Nickname,
                             isReady = false,
-                            slot_index = RoomDataManager.Instance.mySlotIndex
+                            slot_index = mySlot
                         };
                     }
                 }
@@ -124,37 +91,41 @@ namespace MCRGame.Net
                 Debug.LogError("PlayerDataManager 또는 RoomDataManager 인스턴스가 없습니다.");
             }
 
-            // 단일 버튼 설정: host이면 "Start", 게스트이면 "Ready"
+            // Action 버튼 초기 설정
             if (actionButton != null)
             {
+                var txt = actionButton.GetComponentInChildren<Text>();
                 if (isHost)
                 {
-                    actionButton.GetComponentInChildren<Text>().text = "Start";
+                    txt.text = "Start";
                     actionButton.interactable = false;
+                    isReady = true;
                 }
                 else
                 {
-                    actionButton.GetComponentInChildren<Text>().text = "Ready";
+                    txt.text = "Ready";
                     actionButton.interactable = true;
                 }
                 actionButton.onClick.AddListener(OnActionButtonClicked);
             }
-            // 초기 UI 업데이트: Players 배열 기반으로 readyIndicators를 관리
+
             UpdatePlayerUI();
 
-            // WebSocket 연결 완료 콜백 등록
             if (roomWS != null)
-            {
-                roomWS.OnWebSocketConnected = OnWebSocketConnectedHandler;
-            }
+                roomWS.OnWebSocketConnected += OnWebSocketConnectedHandler;
         }
 
+        private void OnDestroy()
+        {
+            if (roomWS != null)
+                roomWS.OnWebSocketConnected -= OnWebSocketConnectedHandler;
+        }
 
-        /// <summary> 호스트 변경 알림 </summary>
+        #region Host / Leave
+
         public void OnHostChanged(string newHostUid)
         {
             var rdm = RoomDataManager.Instance;
-            // HostSlotIndex 갱신
             for (int i = 0; i < rdm.Players.Length; i++)
             {
                 if (rdm.Players[i]?.uid == newHostUid)
@@ -164,64 +135,60 @@ namespace MCRGame.Net
                     break;
                 }
             }
-            // isHost 플래그 및 버튼 텍스트/활성화 갱신
-            bool nowHost = PlayerDataManager.Instance.Uid == newHostUid;
-            if (nowHost)
+
+            isHost = PlayerDataManager.Instance.Uid == newHostUid;
+            var btnText = actionButton.GetComponentInChildren<Text>();
+            if (isHost)
             {
-                actionButton.GetComponentInChildren<Text>().text = "Start";
-                actionButton.interactable = playerReady.All(r => r);
+                isReady = true;
+                btnText.text = "Start";
+                actionButton.interactable = rdm.Players.All(p => p.isReady);
             }
             else
             {
-                actionButton.GetComponentInChildren<Text>().text = "Ready";
+                btnText.text = "Ready";
                 actionButton.interactable = true;
             }
         }
 
-        // RoomManager.cs
         private void OnBackButton()
         {
-            // WS로 leave 전송 삭제
-            // await roomWS.SendLeaveAsync();
-
-            // 대신 REST API 호출
             StartCoroutine(
                 RoomApiManager.Instance.LeaveRoom(
                     RoomDataManager.Instance.RoomId,
                     onSuccess: resp =>
                     {
-                        Debug.Log("[RoomManager] 서버에서 방 나가기 성공: " + resp.message);
-                        // 씬 전환
+                        Debug.Log("[RoomManager] 방 나가기 성공: " + resp.message);
                         SceneManager.LoadScene("RoomListScene");
                     },
                     onError: err =>
                     {
-                        Debug.LogError("[RoomManager] 서버에서 방 나가기 실패: " + err);
-                        // 그래도 방 리스트로 돌아가도록
+                        Debug.LogError("[RoomManager] 방 나가기 실패: " + err);
                         SceneManager.LoadScene("RoomListScene");
                     }
                 )
             );
         }
 
+        #endregion
 
+        #region WebSocket
 
-        // WebSocket 연결 완료 시 호출되는 콜백 처리
         private void OnWebSocketConnectedHandler()
         {
             wsConnected = true;
-            Debug.Log("[RoomManager] WebSocket 연결 완료. wsConnected = true");
-            // 연결 전에 Ready 버튼이 클릭되어 있던 상태라면(레디 상태가 유지 중이라면) 신호 전송
-            if (!isHost && clickedReadyBeforeWS && roomWS != null)
+            Debug.Log("[RoomManager] WebSocket 연결 완료");
+            if (isHost || (!isHost && clickedReadyBeforeWS && roomWS != null))
             {
                 roomWS.SendReadyStatus(isReady);
-                Debug.Log("[RoomManager] WebSocket 연결 후 미리 설정한 Ready 상태 전송됨: " + isReady);
+                Debug.Log("[RoomManager] 연동 후 Ready 상태 전송: " + isReady);
             }
         }
 
-        /// <summary>
-        /// 단일 버튼 클릭 시 호출. host는 Start 버튼 동작, 게스트는 Ready 상태 토글 수행.
-        /// </summary>
+        #endregion
+
+        #region Action Button
+
         private void OnActionButtonClicked()
         {
             if (isHost)
@@ -230,136 +197,91 @@ namespace MCRGame.Net
             }
             else
             {
-                // 게스트 Ready 상태 토글
+                // 게스트 Ready 토글
                 isReady = !isReady;
-                int slot = RoomDataManager.Instance.mySlotIndex; // RoomDataManager에서 참조
-                playerReady[slot] = isReady;
-                // Players 배열 업데이트: 현재 플레이어의 Ready 상태 변경
-                if (RoomDataManager.Instance.Players[slot] != null)
-                {
-                    RoomDataManager.Instance.Players[slot].isReady = isReady;
-                }
-                // UI 업데이트는 UpdatePlayerUI에서 처리
-                UpdatePlayerUI();
-                if (actionButton != null)
-                {
-                    actionButton.GetComponentInChildren<Text>().text = isReady ? "Ready ✔" : "Ready";
-                }
+                int slot = RoomDataManager.Instance.mySlotIndex;
+                RoomDataManager.Instance.Players[slot].isReady = isReady;
 
-                // Ready 버튼 클릭 시 WebSocket 연결 상태에 따라 처리:
-                // 연결이 완료되어 있다면 바로 신호 전송, 아니라면 추후 전송을 위해 플래그 설정.
+                // 로컬 UI 즉시 갱신
+                RefreshPlayerUI_Internal();
+
+                actionButton.GetComponentInChildren<Text>().text = isReady ? "Ready ✔" : "Ready";
+
                 if (wsConnected && roomWS != null)
-                {
                     roomWS.SendReadyStatus(isReady);
-                }
                 else
-                {
                     clickedReadyBeforeWS = true;
-                    Debug.Log("[RoomManager] WebSocket 미연결 상태에서 Ready 버튼 클릭, 나중에 신호 전송 예정.");
-                }
             }
         }
 
-        /// <summary>
-        /// host가 Start 버튼 클릭 시 호출. 모든 플레이어가 Ready여야 게임 시작.
-        /// </summary>
         public void OnHostStartGame()
         {
             if (roomWS != null)
-            {
                 roomWS.SendReadyStatus(isReady);
-            }
-            int readyCount = playerReady.Count(r => r);
-            Debug.Log($"[RoomManager] Host Start button clicked. {readyCount}/4 players ready.");
 
-            if (readyCount == playerReady.Length)
-            {
-                Debug.Log("All players are ready! Calling start game API.");
+            int readyCount = RoomDataManager.Instance.Players.Count(p => p.isReady);
+            Debug.Log($"[RoomManager] Host Start 클릭: {readyCount}/4 준비됨");
+
+            if (readyCount == RoomDataManager.Instance.Players.Length)
                 StartCoroutine(CallStartGameApi());
-            }
             else
-            {
-                Debug.LogWarning("Not all players are ready yet!");
-            }
+                Debug.LogWarning("아직 모든 플레이어가 준비되지 않았습니다.");
         }
-        IEnumerator CallStartGameApi()
+
+        private IEnumerator CallStartGameApi()
         {
-            string url = CoreServerConfig.GetHttpUrl("/room/" + RoomDataManager.Instance.RoomId + "/game-start");
-            using (UnityWebRequest request = new UnityWebRequest(url, "POST"))
+            string url = CoreServerConfig.GetHttpUrl($"/room/{RoomDataManager.Instance.RoomId}/game-start");
+            using var req = new UnityWebRequest(url, "POST")
             {
-                request.uploadHandler = new UploadHandlerRaw(new byte[0]);
-                request.downloadHandler = new DownloadHandlerBuffer();
-                request.SetRequestHeader("Content-Type", "application/json");
-                request.SetRequestHeader("Authorization", $"Bearer {PlayerDataManager.Instance.AccessToken}");
-                request.certificateHandler = new BypassCertificateHandler();
+                uploadHandler = new UploadHandlerRaw(Array.Empty<byte>()),
+                downloadHandler = new DownloadHandlerBuffer()
+            };
+            req.SetRequestHeader("Content-Type", "application/json");
+            req.SetRequestHeader("Authorization", $"Bearer {PlayerDataManager.Instance.AccessToken}");
+            req.certificateHandler = new BypassCertificateHandler();
 
-                yield return request.SendWebRequest();
+            yield return req.SendWebRequest();
 
-                if (request.result == UnityWebRequest.Result.Success)
-                {
-                    Debug.Log("Start game API success: " + request.downloadHandler.text);
-                    // API 호출 성공 시 추가 GameWS 인스턴스 생성 및 씬 전환 로직은 외부에서 처리합니다.
-                }
-                else
-                {
-                    Debug.LogError("Start game API failed: " + request.error);
-                }
-            }
+            if (req.result == UnityWebRequest.Result.Success)
+                Debug.Log("Start game API 성공: " + req.downloadHandler.text);
+            else
+                Debug.LogError("Start game API 실패: " + req.error);
         }
 
+        #endregion
 
+        #region UI 업데이트
 
+        public void UpdateAllPlayerStatus()
+        {
+            var players = RoomDataManager.Instance.Players;
+            if (players == null) return;
+            foreach (var p in players.Where(p => p != null))
+                UpdatePlayerReadyState(p.uid, p.isReady);
+        }
 
-        /// <summary>
-        /// 외부(예: 웹소켓 이벤트)에서 호출하여 해당 유저의 Ready 상태 및 전체 상태를 업데이트합니다.
-        /// uid 기준으로 업데이트하며, Players 배열의 슬롯에 맞게 배치합니다.
-        /// </summary>
         public void UpdatePlayerReadyState(string uid, bool readyStatus)
         {
-            if (RoomDataManager.Instance == null)
-            {
-                Debug.LogWarning("RoomDataManager instance is null.");
-                return;
-            }
+            var rdm = RoomDataManager.Instance;
+            var players = rdm.Players;
 
-            print($"new uid: {uid}, player uid: {PlayerDataManager.Instance.Uid}");
-            if (uid == PlayerDataManager.Instance.Uid)
+            // 1) 호스트면 HostSlotIndex 처리
+            if (rdm.HostUser != null && uid == rdm.HostUser.uid)
             {
-                Debug.Log("already updated player's state");
-                return;
-            }
-
-            if (RoomDataManager.Instance.HostUser != null && uid == RoomDataManager.Instance.HostUser.uid)
-            {
-                int hostSlot = RoomDataManager.Instance.HostSlotIndex;
-                playerReady[hostSlot] = readyStatus;
-                if (RoomDataManager.Instance.Players[hostSlot] != null)
-                {
-                    RoomDataManager.Instance.Players[hostSlot].isReady = readyStatus;
-                }
-                Debug.Log($"[RoomManager] Host ready status updated: {readyStatus}");
+                players[rdm.HostSlotIndex].isReady = readyStatus;
+                Debug.Log($"[RoomManager] Host Ready → {readyStatus}");
             }
             else
             {
-                RoomUserData[] players = RoomDataManager.Instance.Players;
-                int guestSlot = -1;
-                for (int i = 0; i < players.Length; i++)
-                {
-                    if (i == RoomDataManager.Instance.HostSlotIndex)
-                        continue;
-                    if (players[i] != null && players[i].uid == uid)
-                    {
-                        guestSlot = i;
-                        break;
-                    }
-                }
+                // 2) 이미 있는 슬롯 찾기
+                int guestSlot = Array.FindIndex(players, p => p != null && p.uid == uid);
+
+                // 3) 없으면 빈 슬롯(host 슬롯 제외)에 신규 생성
                 if (guestSlot == -1)
                 {
-                    // 빈 슬롯에 등록 (host 슬롯 제외)
                     for (int i = 0; i < players.Length; i++)
                     {
-                        if (i == RoomDataManager.Instance.HostSlotIndex)
-                            continue;
+                        if (i == rdm.HostSlotIndex) continue;
                         if (players[i] == null)
                         {
                             players[i] = new RoomUserData
@@ -374,84 +296,113 @@ namespace MCRGame.Net
                         }
                     }
                 }
-                if (guestSlot == -1)
-                    guestSlot = 1;
-                playerReady[guestSlot] = readyStatus;
-                if (players[guestSlot] != null)
+
+                // 4) 최종 ready 상태 적용
+                if (guestSlot != -1)
                 {
                     players[guestSlot].isReady = readyStatus;
+                    Debug.Log($"[RoomManager] Guest({uid}) Ready → {readyStatus} (slot {guestSlot})");
                 }
-                Debug.Log($"[RoomManager] Guest (uid: {uid}) ready status updated (slot {guestSlot}): {readyStatus}");
             }
 
-            // UI 업데이트: 플레이어 UI 및 readyIndicators 업데이트
-            UpdatePlayerUI();
+            // 5) UI 갱신
+            RefreshPlayerUI_Internal();
 
-            // host인 경우, 모든 플레이어가 Ready이면 Start 버튼 활성화
-            if (isHost && actionButton != null)
+            // 6) Host라면 Start 버튼 활성화 체크
+            if (isHost)
             {
-                int readyCount = playerReady.Count(r => r);
-                actionButton.interactable = (readyCount == playerReady.Length);
+
+                bool allReady = RoomDataManager.Instance.Players.All(p => p != null && p.isReady);
+                actionButton.interactable = allReady;
             }
         }
 
         public void UpdatePlayerUI()
         {
-            if (RoomDataManager.Instance != null)
-            {
-                RoomDataManager.Instance.PrintPlayers();
-                RoomUserData[] players = RoomDataManager.Instance.Players;
-                for (int i = 0; i < players.Length; i++)
+            // 1초 이내 중복 호출 방지
+            if (Time.time - _lastUIUpdateTime < 1f) return;
+            _lastUIUpdateTime = Time.time;
+
+            StartCoroutine(FetchAndRefreshPlayerUI());
+            RoomDataManager.Instance.PrintPlayers();
+        }
+
+        private IEnumerator FetchAndRefreshPlayerUI()
+        {
+            string roomId = RoomDataManager.Instance.RoomId;
+            Debug.Log($"[RoomManager] FetchAndRefreshPlayerUI 시작. RoomId={roomId}");
+            bool done = false;
+            float startTime = Time.time;
+
+            yield return RoomApiManager.Instance.FetchRoomUsers(
+                roomId,
+                resp =>
                 {
-                    // 디버깅: 현재 슬롯 i의 플레이어 정보 출력
-                    if (players[i] != null)
+                    if (RoomDataManager.Instance.HostUser.uid != resp.host_uid)
+                        OnHostChanged(resp.host_uid);
+                    Debug.Log($"[RoomManager] FetchRoomUsers 성공: users.Count={resp.users.Length}");
+                    foreach (var u in resp.users)
                     {
-                        Debug.Log($"[UpdatePlayerUI] Slot {i}: {players[i].nickname}, isReady: {players[i].isReady}");
+                        RoomDataManager.Instance.AddOrUpdateUser(u);
+                        Debug.Log($"[RoomManager] AddOrUpdateUser 호출: uid={u.uid}, nickname={u.nickname}, isReady={u.isReady}, slot_index={u.slot_index}");
                     }
-                    else
-                    {
-                        Debug.Log($"[UpdatePlayerUI] Slot {i}: Empty");
-                    }
-
-                    // 플레이어 닉네임과 캐릭터 이미지 업데이트
-                    if (players[i] != null)
-                    {
-                        if (playerNicknameTexts != null && playerNicknameTexts.Length > i)
-                        {
-                            playerNicknameTexts[i].text = players[i].nickname;
-                            playerNicknameTexts[i].gameObject.SetActive(true);
-                        }
-                        if (playerCharacterImages != null && playerCharacterImages.Length > i)
-                        {
-                            playerCharacterImages[i].sprite = defaultCharacterSprite;
-                            playerCharacterImages[i].gameObject.SetActive(true);
-                        }
-                    }
-                    else
-                    {
-                        if (playerNicknameTexts != null && playerNicknameTexts.Length > i)
-                            playerNicknameTexts[i].gameObject.SetActive(false);
-                        if (playerCharacterImages != null && playerCharacterImages.Length > i)
-                            playerCharacterImages[i].gameObject.SetActive(false);
-                    }
-
-                    // Ready 상태에 따른 readyIndicators 업데이트
-                    if (readyIndicators != null && readyIndicators.Length > i)
-                    {
-                        if (players[i] != null)
-                        {
-                            readyIndicators[i].gameObject.SetActive(true);
-                            readyIndicators[i].color = players[i].isReady ? Color.green : Color.red;
-                            Debug.Log($"[UpdatePlayerUI] ReadyIndicator Slot {i}: Active, Color: {(players[i].isReady ? "Green" : "Red")}");
-                        }
-                        else
-                        {
-                            readyIndicators[i].gameObject.SetActive(false);
-                            Debug.Log($"[UpdatePlayerUI] ReadyIndicator Slot {i}: Inactive");
-                        }
-                    }
+                    UpdateAllPlayerStatus();
+                    Debug.Log("[RoomManager] UpdateAllPlayerStatus 호출 완료");
+                    done = true;
+                },
+                err =>
+                {
+                    Debug.LogError($"[RoomManager] FetchRoomUsers 실패: {err}");
+                    done = true;
                 }
+            );
+
+            while (!done)
+            {
+                Debug.Log("[RoomManager] FetchAndRefreshPlayerUI 대기 중...");
+                yield return null;
+            }
+
+            float elapsed = Time.time - startTime;
+            Debug.Log($"[RoomManager] FetchAndRefreshPlayerUI 완료 (소요 {elapsed:F2}s). 이제 UI 갱신합니다.");
+            RefreshPlayerUI_Internal();
+            Debug.Log("[RoomManager] RefreshPlayerUI_Internal 호출 완료");
+        }
+
+
+        private void ClearAllPlayerUI()
+        {
+            foreach (var t in playerNicknameTexts) { t.text = ""; t.gameObject.SetActive(false); }
+            foreach (var img in playerCharacterImages) { img.sprite = null; img.gameObject.SetActive(false); }
+            foreach (var ind in readyIndicators) { ind.gameObject.SetActive(false); }
+        }
+
+        private void RefreshPlayerUI_Internal()
+        {
+            ClearAllPlayerUI();
+            var players = RoomDataManager.Instance.Players;
+            for (int i = 0; i < players.Length; i++)
+            {
+                var u = players[i];
+                if (u == null) continue;
+
+                playerNicknameTexts[i].text = u.nickname;
+                playerNicknameTexts[i].gameObject.SetActive(true);
+
+                playerCharacterImages[i].sprite = defaultCharacterSprite;
+                playerCharacterImages[i].gameObject.SetActive(true);
+
+                readyIndicators[i].gameObject.SetActive(true);
+                readyIndicators[i].color = u.isReady ? Color.green : Color.red;
+            }
+
+            if (isHost)
+            {
+                bool allReady = RoomDataManager.Instance.Players.All(p => p != null && p.isReady);
+                actionButton.interactable = allReady;
             }
         }
+
+        #endregion
     }
 }

@@ -58,6 +58,9 @@ MonoBehaviour:
   tsumoDropHeight: 50
   tsumoDropDuration: 0.3
   tsumoFadeDuration: 0.2
+  IsInitHandComplete: 0
+  IsAnimating: 0
+  CanClick: 0
 --- !u!222 &4344802028297681696
 CanvasRenderer:
   m_ObjectHideFlags: 0

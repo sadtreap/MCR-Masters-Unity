@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System;
 using System.Text;
-using Unity.VisualScripting;
 
 namespace MCRGame.UI
 {
@@ -41,7 +40,7 @@ namespace MCRGame.UI
                 CallBlockOrigin.AddCallBlock(callBlock);
             }
             // 승자 정보
-            //winnerNicknameText.text = GameManager.Instance.Players[(int)scoreData.winnerSeat].Nickname;
+            winnerNicknameText.text = GameManager.Instance.Players[GameManager.Instance.seatToPlayerIndex[scoreData.winnerSeat]].Nickname;
             //characterImage.sprite = scoreData.characterSprite;
 
             DisplayYakuScores(scorePannel.GetComponent<RectTransform>(), scoreTextPrefab, scoreData.yaku_score_list);

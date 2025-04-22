@@ -89,7 +89,7 @@ namespace MCRGame.UI
                                 {
                                     uid = u.uid,
                                     nickname = u.nickname,
-                                    isReady = u.is_ready ? true : u.uid == hostUser.uid,
+                                    isReady = u.isReady ? true : u.uid == hostUser.uid,
                                     slot_index = u.slot_index
                                 };
                             }

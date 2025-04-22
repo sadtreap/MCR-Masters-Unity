@@ -48,7 +48,7 @@ namespace MCRGame.Game
         [SerializeField]
         private CallBlockField[] callBlockFields;
 
-        private Dictionary<AbsoluteSeat, int> seatToPlayerIndex;
+        public Dictionary<AbsoluteSeat, int> seatToPlayerIndex;
         private Dictionary<int, AbsoluteSeat> playerIndexToSeat;
         private Dictionary<string, int> playerUidToIndex;
 
@@ -68,6 +68,10 @@ namespace MCRGame.Game
         [SerializeField] private Color zeroScoreColor = Color.white;                  // #FFFFFF
         [Tooltip("음의 점수일 때 텍스트 색상")]
         [SerializeField] private Color negativeScoreColor = new Color(0.7804f, 0.7569f, 0.3186f); // #C7C151
+
+        public Color PositiveScoreColor => positiveScoreColor;
+        public Color ZeroScoreColor => zeroScoreColor;
+        public Color NegativeScoreColor => negativeScoreColor;
 
         [Header("Wind Label Texts (RelativeSeat 순서)")]
         [SerializeField] private TextMeshProUGUI windText_Self;
@@ -125,6 +129,11 @@ namespace MCRGame.Game
 
         public RelativeSeat currentTurnSeat;
 
+        [SerializeField] private GameObject EndScorePopupPrefab;
+
+        public bool isInitHandDone = false;
+        public List<GameWSMessage> pendingFlowerReplacement = new();
+
         public void UpdatePlayerScores(List<int> playersScores)
         {
             for (int i = 0; i < playersScores.Count; ++i)
@@ -172,7 +181,7 @@ namespace MCRGame.Game
         /// <summary>
         /// TileManager 클릭 시 호출: 서버로 검증 요청
         /// </summary>
-        public async void RequestDiscard(GameTile tile, bool is_tsumogiri)
+        public void RequestDiscard(GameTile tile, bool is_tsumogiri)
         {
             var payload = new
             {
@@ -183,7 +192,7 @@ namespace MCRGame.Game
                     is_tsumogiri,
                 }
             };
-            await GameWS.Instance.SendGameEventAsync(GameWSActionType.GAME_EVENT, payload);
+            GameWS.Instance.SendGameEvent(GameWSActionType.GAME_EVENT, payload);
         }
         public void UpdateActionId(int actionId)
         {
@@ -564,11 +573,11 @@ namespace MCRGame.Game
         {
             Debug.Log($"액션 선택: {action.Type} / 타일: {action.Tile}");
             // TODO: 선택된 action_id와 action.Type, action.Tile 서버 전송
-            _ = SendSelectedAction(action: action);
+            SendSelectedAction(action: action);
             ClearActionUI();
         }
 
-        private async Task SendSelectedAction(GameAction action)
+        private void SendSelectedAction(GameAction action)
         {
             var payload = new
             {
@@ -576,7 +585,7 @@ namespace MCRGame.Game
                 action_tile = action.Tile,
                 action_id = currentActionId,
             };
-            await GameWS.Instance.SendGameEventAsync(action: GameWSActionType.RETURN_ACTION, payload: payload);
+            GameWS.Instance.SendGameEvent(action: GameWSActionType.RETURN_ACTION, payload: payload);
         }
 
         private void OnSkipButtonClicked()
@@ -586,7 +595,7 @@ namespace MCRGame.Game
             SkipAction.Type = GameActionType.SKIP;
             SkipAction.Tile = GameTile.M1;
             SkipAction.SeatPriority = RelativeSeat.SELF;
-            _ = SendSelectedAction(action: SkipAction);
+            SendSelectedAction(action: SkipAction);
             ClearActionUI();
         }
 
@@ -597,7 +606,7 @@ namespace MCRGame.Game
             SkipAction.Type = GameActionType.SKIP;
             SkipAction.Tile = GameTile.M1;
             SkipAction.SeatPriority = RelativeSeat.SELF;
-            _ = SendSelectedAction(action: SkipAction);
+            SendSelectedAction(action: SkipAction);
             ClearActionButtons();
         }
 
@@ -644,7 +653,7 @@ namespace MCRGame.Game
         }
 
 
-        private void InitRound()
+        private IEnumerator InitRound()
         {
             leftTiles = MAX_TILES - (GameHand.FULL_HAND_SIZE - 1) * MAX_PLAYERS - 1;
             SetUIActive(true);
@@ -661,6 +670,9 @@ namespace MCRGame.Game
             {
                 hand3DField.clear();
             }
+
+            yield return new WaitForSeconds(2f);
+
             if (isGameStarted)
             {
                 if (CurrentRound.NextRound() != Round.END)
@@ -956,15 +968,62 @@ namespace MCRGame.Game
             Debug.Log($"GameManager: Game initialized with {Players.Count} players.");
         }
 
+        public IEnumerator InitHandCoroutine(List<GameTile> tiles, GameTile? tsumoTile)
+        {
+            isInitHandDone = false;
+            yield return StartCoroutine(InitHandFromMessage(tiles, tsumoTile));
+            isInitHandDone = true;
+
+            Debug.Log("[GameMessageMediator] InitHand complete. Processing any queued flower replacement messages.");
+
+            foreach (var msg in pendingFlowerReplacement)
+                ProcessInitFlowerReplacement(msg);
+            pendingFlowerReplacement.Clear();
+        }
+
+        public void ProcessInitFlowerReplacement(GameWSMessage message)
+        {
+            List<GameTile> newTiles = null;
+            List<GameTile> appliedFlowers = null;
+            List<int> flowerCounts = null;
+
+            if (message.Data.TryGetValue("new_tiles", out JToken tilesToken))
+            {
+                var newTilesInts = tilesToken.ToObject<List<int>>();
+                newTiles = newTilesInts.Select(i => (GameTile)i).ToList();
+            }
+
+            if (message.Data.TryGetValue("applied_flowers", out JToken appliedFlowersToken))
+            {
+                appliedFlowers = appliedFlowersToken.ToObject<List<GameTile>>();
+            }
+
+            if (message.Data.TryGetValue("flower_count", out JToken countToken))
+            {
+                flowerCounts = countToken.ToObject<List<int>>();
+            }
+
+            if (newTiles != null && appliedFlowers != null && flowerCounts != null)
+            {
+                Debug.Log("[GameMessageMediator] Starting flower replacement coroutine.");
+                StartCoroutine(StartFlowerReplacement(newTiles, appliedFlowers, flowerCounts));
+            }
+            else
+            {
+                Debug.LogWarning("[GameMessageMediator] One or more flower replacement parameters were missing.");
+            }
+        }
+
+
         /// <summary>
         /// INIT_EVENT 메시지를 통해 받은 초기 손패 데이터를 SELF의 손패와
         /// 플레이어들의 3D 손패 필드에 반영합니다.
         /// </summary>
         /// <param name="initTiles">자신의 초기 손패 타일 데이터 리스트</param>
         /// <param name="tsumoTile">서버에서 받은 tsumotile (없으면 null)</param>
-        public void InitHandFromMessage(List<GameTile> initTiles, GameTile? tsumoTile)
+        public IEnumerator InitHandFromMessage(List<GameTile> initTiles, GameTile? tsumoTile)
         {
-            InitRound();
+            yield return InitRound();
             gameHandManager.CanClick = false;
             gameHandManager.IsAnimating = true;
             Debug.Log("GameManager: Initializing hand with received data for SELF.");
@@ -985,7 +1044,7 @@ namespace MCRGame.Game
             if (playersHand3DFields == null || playersHand3DFields.Length < MAX_PLAYERS)
             {
                 Debug.LogError("playersHand3DFields 배열이 4개로 할당되어 있지 않습니다.");
-                return;
+                yield break;
             }
             for (int i = 0; i < playersHand3DFields.Length; i++)
             {
@@ -1137,7 +1196,7 @@ namespace MCRGame.Game
             }
             if (GameWS.Instance != null)
             {
-                _ = GameWS.Instance.SendGameEventAsync(GameWSActionType.GAME_EVENT, new
+                GameWS.Instance.SendGameEvent(GameWSActionType.GAME_EVENT, new
                 {
                     event_type = (int)GameEventType.INIT_FLOWER_OK,
                     data = new Dictionary<string, object>()
@@ -1259,13 +1318,36 @@ namespace MCRGame.Game
             }
         }
 
+        public void EndScorePopup()
+        {
+            if (EndScorePopupPrefab == null)
+            {
+                Debug.LogError("ScorePopupPrefab이 할당되지 않았습니다.");
+                return;
+            }
+            // 씬에 Canvas 포함 프리팹을 그대로 생성
+            GameObject popupGO = Instantiate(EndScorePopupPrefab);
+            var mgr = popupGO.GetComponentInChildren<EndScorePopupManager>();
+            if (mgr == null)
+            {
+                Debug.LogError("EndScorePopupManager를 찾을 수 없습니다.");
+                return;
+            }
+            StartCoroutine(mgr.ShowScores(Players));
+        }
+
         public IEnumerator ProcessDraw(
             List<List<GameTile>> anKanInfos
         )
         {
+            isInitHandDone = false;
             yield return StartCoroutine(cameraResultAnimator.PlayResultAnimation());
             yield return new WaitForSeconds(3f);
             cameraResultAnimator.ResetCameraState();
+            if (CurrentRound == Round.N4)
+            {
+                EndScorePopup();
+            }
         }
 
         public IEnumerator ProcessHuHand(
@@ -1280,12 +1362,14 @@ namespace MCRGame.Game
             GameTile winningTile
         )
         {
+            isInitHandDone = false;
             ClearActionUI();
             gameHandManager.CanClick = false;
             gameHandManager.IsAnimating = true;
             handTiles.Sort();
-            int singleScore = scoreResult.total_score;
+            int singleScore = scoreResult.total_score + flowerCount;
             int total_score = (winPlayerSeat == currentPlayerSeat ? singleScore * 3 : singleScore) + 24;
+            scoreResult.yaku_score_list.Add(new YakuScore(yid: (int)Yaku.FlowerPoint, score: flowerCount));
             WinningScoreData wsd = new WinningScoreData(handTiles, callBlocks, singleScore, total_score, scoreResult.yaku_score_list, winPlayerSeat, flowerCount, winningTile);
 
 
@@ -1314,13 +1398,18 @@ namespace MCRGame.Game
             canvas.SetActive(true);
             Debug.Log("Canvas 활성화 완료.");
 
+            UpdateScoreText();
             if (GameWS.Instance != null)
             {
-                _ = GameWS.Instance.SendGameEventAsync(GameWSActionType.GAME_EVENT, new
+                GameWS.Instance.SendGameEvent(GameWSActionType.GAME_EVENT, new
                 {
                     event_type = (int)GameEventType.NEXT_ROUND_CONFIRM,
                     data = new Dictionary<string, object>()
                 });
+            }
+            if (CurrentRound == Round.N4)
+            {
+                EndScorePopup();
             }
         }
 

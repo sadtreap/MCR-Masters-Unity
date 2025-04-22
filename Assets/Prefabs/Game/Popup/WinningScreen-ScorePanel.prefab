@@ -35,7 +35,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -0.000061035156, y: 0.000030517578}
+  m_AnchoredPosition: {x: -0.00012207031, y: 0.000061035156}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &4071392491035955525
@@ -182,7 +182,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0.000030517578, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: -0.000061035, y: -0.0001}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &9035289740883216095
@@ -338,7 +338,7 @@ MonoBehaviour:
   m_ScaleFactor: 1
   m_ReferenceResolution: {x: 1920, y: 1080}
   m_ScreenMatchMode: 0
-  m_MatchWidthOrHeight: 0.5
+  m_MatchWidthOrHeight: 1
   m_PhysicalUnit: 3
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
@@ -492,8 +492,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   TilePanel: {fileID: 421310953711227062}
   TsumoPanel: {fileID: 5787292059609722833}
-  winningTilesText: {fileID: 0}
-  callBlocksText: {fileID: 0}
   singleScoreText: {fileID: 4441202718871365721}
   totalScoreText: {fileID: 3852624679085528264}
   winnerNicknameText: {fileID: 3863183303089901110}
@@ -967,8 +965,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 24
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: d54a21133cf0408498d545f27812e3bd, type: 2}
-  m_sharedMaterial: {fileID: 2100000, guid: df2ed55bdc72dc940a17aa44d69223ed, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1386,7 +1384,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -587.65485, y: -12.415527}
+  m_AnchoredPosition: {x: -587.6549, y: -12.415527}
   m_SizeDelta: {x: -1215.3094, y: -43.1691}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8863796073456063894
@@ -1915,8 +1913,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 8
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: d54a21133cf0408498d545f27812e3bd, type: 2}
-  m_sharedMaterial: {fileID: -3502945091879338945, guid: d54a21133cf0408498d545f27812e3bd, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
