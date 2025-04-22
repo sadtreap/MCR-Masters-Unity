@@ -81,22 +81,18 @@ namespace MCRGame.Game
                 case GameWSActionType.INIT_EVENT:
                     Debug.Log("[GameMessageMediator] Init event received.");
 
-                    // hand 파싱
                     if (message.Data.TryGetValue("hand", out JToken handToken))
                     {
                         var handInts = handToken.ToObject<List<int>>();
                         var initTiles = handInts.Select(i => (GameTile)i).ToList();
 
-                        // tsumo_tile 파싱 (null 가능)
                         GameTile? tsumoTile = null;
-                        if (message.Data.TryGetValue("tsumo_tile", out JToken tsumoToken)
-                            && tsumoToken.Type != JTokenType.Null)
+                        if (message.Data.TryGetValue("tsumo_tile", out JToken tsumoToken) && tsumoToken.Type != JTokenType.Null)
                         {
                             int tsumoInt = tsumoToken.ToObject<int>();
                             tsumoTile = (GameTile)tsumoInt;
                             Debug.Log($"[GameMessageMediator] Tsumo tile: {tsumoTile}");
 
-                            // tsumoTile이 있으면 initTiles에서 제거
                             if (tsumoTile.HasValue)
                             {
                                 bool removed = initTiles.Remove(tsumoTile.Value);
@@ -107,21 +103,16 @@ namespace MCRGame.Game
                             }
                         }
 
-                        // players_score 파싱 (추가된 부분)
                         if (message.Data.TryGetValue("players_score", out JToken scoreToken))
                         {
                             var playersScores = scoreToken.ToObject<List<int>>();
-                            Debug.Log($"[GameMessageMediator] Players scores: {string.Join(", ", playersScores)}");
                             GameManager.Instance.UpdatePlayerScores(playersScores);
                         }
-                        else
-                        {
-                            Debug.LogWarning("[GameMessageMediator] INIT_EVENT 메시지에 players_score 필드가 없습니다.");
-                        }
 
-                        GameManager.Instance.InitHandFromMessage(initTiles, tsumoTile);
+                        StartCoroutine(GameManager.Instance.InitHandCoroutine(initTiles, tsumoTile));
                     }
                     break;
+
 
                 case GameWSActionType.GAME_START_INFO:
                     Debug.Log("[GameMessageMediator] UPDATE_ACTION_ID event received.");
@@ -222,8 +213,16 @@ namespace MCRGame.Game
 
                     if (newTiles != null && appliedFlowers != null && flowerCounts != null)
                     {
-                        // GameManager의 화패 교체 이벤트 시작 (코루틴 내부에서 전체 이벤트 연출 진행)
-                        StartCoroutine(GameManager.Instance.StartFlowerReplacement(newTiles, appliedFlowers, flowerCounts));
+                        Debug.Log("[GameMessageMediator] INIT_FLOWER_REPLACEMENT event received.");
+                        if (!GameManager.Instance.isInitHandDone)
+                        {
+                            Debug.Log("[GameMessageMediator] InitHand not finished. Queuing flower replacement.");
+                            GameManager.Instance.pendingFlowerReplacement.Add(message);
+                        }
+                        else
+                        {
+                            GameManager.Instance.ProcessInitFlowerReplacement(message);
+                        }
                     }
                     break;
 
@@ -331,7 +330,7 @@ namespace MCRGame.Game
                             winningTile = (GameTile)winningInt;
                             Debug.Log($"[GameMessageMediator] Hu winning tile: {winningTile}");
                         }
-                        
+
                         // an_kan_infos 파싱
                         List<List<GameTile>> anKanInfos = new List<List<GameTile>>();
                         if (message.Data.TryGetValue("an_kan_infos", out JToken anKanToken))

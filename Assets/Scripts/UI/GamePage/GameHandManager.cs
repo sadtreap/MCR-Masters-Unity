@@ -22,8 +22,8 @@ namespace MCRGame.UI
 
         [Header("Tsumo Drop Settings")]      // <-- 추가
         [SerializeField] private float tsumoDropHeight = 50f;
-        [SerializeField] private float tsumoDropDuration = 0.2f;
-        [SerializeField] private float tsumoFadeDuration = 0.15f;
+        [SerializeField] private float tsumoDropDuration = 0.1f;
+        [SerializeField] private float tsumoFadeDuration = 0.05f;
 
         private RectTransform haipaiRect;
         private List<GameObject> tileObjects;
@@ -54,7 +54,7 @@ namespace MCRGame.UI
 
         private TileManager requestedDiscardTile;
 
-        // 폐기 요청 구조체: 인덱스와 tsumotile 여부 저장
+
         private struct DiscardRequest
         {
             public int index;
@@ -79,6 +79,7 @@ namespace MCRGame.UI
             CanClick = false;
             requestedDiscardTile = null;
         }
+
 
 
         /// <summary>
@@ -145,18 +146,18 @@ namespace MCRGame.UI
 
         public void clear()
         {
-            if (tileObjects == null)
+            if (tileObjects != null)
             {
-                return;
-            }
-            foreach (GameObject tileObj in tileObjects)
-            {
-                if (tileObj == null)
+                foreach (GameObject tileObj in tileObjects)
                 {
-                    continue;
+                    if (tileObj == null)
+                    {
+                        continue;
+                    }
+                    Destroy(tileObj);
                 }
-                Destroy(tileObj);
             }
+            gameHand.Clear();
             tileObjects.Clear();
             tsumoTile = null;
             callBlockField.InitializeCallBlockField();
@@ -173,7 +174,6 @@ namespace MCRGame.UI
             }
             tileObjects.Clear();
             tsumoTile = null;
-
             // GameHand 데이터 업데이트
             gameHand = GameHand.CreateFromTiles(initTiles);
 
@@ -199,20 +199,18 @@ namespace MCRGame.UI
                 }
             }
 
-            // 떨어지는 애니메이션 실행 (그룹 단위: 4장씩)
-            yield return StartCoroutine(AnimateInitHand());
+            // ★ AnimateInitHand 을 큐에 등록하고 끝날 때까지 대기
+            yield return AnimateInitHand();
 
             yield return new WaitForSeconds(0.5f);
-            // tsumoTile이 있으면, 그 뒤에 추가
             if (receivedTsumoTile.HasValue)
             {
+                // tsumo도 큐로 처리해도 좋지만, 기존처럼 바로 드롭
                 yield return AddTsumo(receivedTsumoTile.Value);
             }
-            yield return null;
 
-            // InitHand 완료 기록
             IsInitHandComplete = true;
-            Debug.Log("GameHandManager: InitHand 코루틴 완료됨.");
+            Debug.Log("GameHandManager: InitHand 완료.");
         }
 
         private IEnumerator AnimateInitHand()
@@ -364,7 +362,8 @@ namespace MCRGame.UI
 
         private IEnumerator AnimateTsumoDrop()
         {
-            IsAnimating = true;
+            bool prevCanClick = CanClick;
+            CanClick = false;
             if (tsumoTile == null) yield break;
 
             // --- 1) 정렬 & 목표 위치 계산 ---
@@ -434,7 +433,7 @@ namespace MCRGame.UI
             tsumoRt.anchoredPosition = tsumoTarget;
             if (img != null)
                 img.color = origColor;
-            IsAnimating = false;
+            CanClick = prevCanClick;
         }
 
 
@@ -514,19 +513,19 @@ namespace MCRGame.UI
 
 
         /// <summary>
-        /// CallBlockData 기반으로 호출(Chi/Pon/Kan)을 처리합니다.
+        /// Chi/Pon/Kan 처리 후 UI 애니메이션을 큐로 등록하도록 수정
         /// </summary>
         public void ApplyCall(CallBlockData cbData)
         {
-            IsAnimating = true;
             // 1) 데이터 업데이트
             gameHand.ApplyCall(cbData);
             // 2) UI에 CallBlock 추가
             callBlockField.AddCallBlock(cbData);
-            // 3) UI 핸드에서 제거된 타일들 애니메이션 처리
+            // 3) 처리 코루틴을 큐로 등록
             StartCoroutine(ProcessCallUI(cbData));
-            IsAnimating = false;
         }
+
+
         private IEnumerator ProcessCallUI(CallBlockData cbData)
         {
             Debug.Log($"[GameHandManager] ProcessCallUI 시작 → Type={cbData.Type}, FirstTile={cbData.FirstTile}");
@@ -568,7 +567,7 @@ namespace MCRGame.UI
             {
                 tsumoTile = null;
             }
-            
+
             // 2) removeTiles에 있는 각 타일마다, tileObjects에서 해당 타일(이름이 같은 항목)을 찾아서 제거
             foreach (var gt in removeTiles)
             {
@@ -683,6 +682,9 @@ namespace MCRGame.UI
         }
 
 
+        /// <summary>
+        /// 사용자 클릭에 따른 타일 폐기 요청 처리: 애니메이션 큐 등록으로 수정
+        /// </summary>
         public void DiscardTile(TileManager tileManager)
         {
             if (tileManager == null)
@@ -690,49 +692,35 @@ namespace MCRGame.UI
                 Debug.LogError("DiscardTile: tileManager가 null입니다.");
                 return;
             }
-            // tileManager.gameObject.name은 ToCustomString() 결과값 (예: "1m")
             string customName = tileManager.gameObject.name;
-            if (GameTileExtensions.TryParseCustom(customName, out GameTile tileValue))
+            if (!GameTileExtensions.TryParseCustom(customName, out GameTile tileValue))
             {
-                try
-                {
-                    // 게임 로직 데이터 업데이트: GameHand의 ApplyDiscard 호출
-                    gameHand.ApplyDiscard(tileValue);
-
-                    // 필요 시, DiscardManager를 통해 UI상의 폐기도 수행
-                    if (discardManager != null)
-                    {
-                        discardManager.DiscardTile(RelativeSeat.SELF, tileValue);
-                    }
-
-                    // 큐에 해당 타일 폐기 요청 등록 (해당 타일의 인덱스를 찾음)
-                    int index = tileObjects.IndexOf(tileManager.gameObject);
-                    if (index < 0)
-                    {
-                        Debug.LogError("DiscardTile: 타일 오브젝트를 찾을 수 없습니다.");
-                        return;
-                    }
-                    bool isTsumo = (tileManager.gameObject == tsumoTile);
-                    discardQueue.Enqueue(new DiscardRequest(index, isTsumo));
-
-                    // 큐가 비어있지 않으면 슬라이드 코루틴 시작
-                    if (!isSliding)
-                    {
-                        StartCoroutine(ProcessDiscardQueue());
-                    }
-
-                    Debug.Log($"DiscardTile: {tileValue} ({customName})를 SELF 위치로 폐기 요청 등록.");
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError("DiscardTile 오류: " + ex.Message);
-                }
+                Debug.LogError($"DiscardTile: '{customName}' 문자열을 GameTile로 변환 실패");
+                return;
             }
-            else
+            try
             {
-                Debug.LogError($"DiscardTile: '{customName}' 문자열을 GameTile로 변환하는데 실패했습니다.");
+                // 1) 데이터 업데이트
+                gameHand.ApplyDiscard(tileValue);
+                if (discardManager != null)
+                    discardManager.DiscardTile(RelativeSeat.SELF, tileValue);
+
+                // 2) 내부 큐에 요청 저장
+                int index = tileObjects.IndexOf(tileManager.gameObject);
+                bool isTsumo = (tileManager.gameObject == tsumoTile);
+                discardQueue.Enqueue(new DiscardRequest(index, isTsumo));
+
+                // ▶️ 애니메이션 처리 코루틴을 큐에 등록
+                StartCoroutine(ProcessDiscardQueue());
+
+                Debug.Log($"DiscardTile: {tileValue} ({customName}) 폐기 요청 등록.");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("DiscardTile 오류: " + ex.Message);
             }
         }
+
 
         // 큐에 쌓인 폐기 요청들을 순차 처리하는 코루틴
         private IEnumerator ProcessDiscardQueue()

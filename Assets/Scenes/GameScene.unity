@@ -1940,7 +1940,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 754ff30e64923a247886d93130ccf17a, type: 3}
+  m_Sprite: {fileID: 21300000, guid: fe3b4f528d464b24db501451562d3523, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -4279,6 +4279,7 @@ MonoBehaviour:
   timerText: {fileID: 2123852928}
   IsMyTurn: 0
   currentTurnSeat: 0
+  EndScorePopupPrefab: {fileID: 3268360009849111226, guid: e5f504f812f6b3144bc20233a92543c4, type: 3}
 --- !u!4 &1254287264
 Transform:
   m_ObjectHideFlags: 0
@@ -6796,8 +6797,8 @@ MonoBehaviour:
   slideDuration: 0.5
   gap: 0.1
   tsumoDropHeight: 50
-  tsumoDropDuration: 0.3
-  tsumoFadeDuration: 0.2
+  tsumoDropDuration: 0.1
+  tsumoFadeDuration: 0.05
   IsInitHandComplete: 0
   IsAnimating: 0
   CanClick: 0

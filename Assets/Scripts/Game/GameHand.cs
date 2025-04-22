@@ -42,6 +42,13 @@ namespace MCRGame.Game
             TsumoTile = null;
         }
 
+        public void Clear()
+        {
+            Tiles.Clear();
+            CallBlockData.Clear();
+            TsumoTile = null;
+        }
+
         // 주어진 타일 목록으로 GameHand를 생성합니다.
         public static GameHand CreateFromTiles(List<GameTile> tiles)
         {

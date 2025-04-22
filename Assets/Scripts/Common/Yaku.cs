@@ -86,6 +86,7 @@ namespace MCRGame.Common
         EdgeWait = 76,
         SingleWait = 77,
         ClosedWait = 78,
-        SelfDrawn = 79
+        SelfDrawn = 79,
+        FlowerPoint = 80,
     }
 }
