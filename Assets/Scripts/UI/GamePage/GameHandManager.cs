@@ -54,6 +54,38 @@ namespace MCRGame.UI
 
         private TileManager requestedDiscardTile;
 
+        private bool isTileOpRunning = false;              // 🔒 모든 타일‑변경(파괴·추가·재배치) 공통 락
+
+        private IEnumerator WaitForTileOpDone()
+        {
+            while (isTileOpRunning)            // 다른 연산이 끝날 때까지 한 프레임씩 기다린다
+                yield return null;
+        }
+
+        public IEnumerator RunExclusive(IEnumerator body)
+        {
+            // ❶ 이미 내가 락을 보유 중이면 추가 대기 없이 바로 실행
+            if (isTileOpRunning)
+            {
+                yield return StartCoroutine(body);   // 중첩 실행
+                yield break;
+            }
+
+            // ❷ 락이 비어 있으면 정상 절차
+            yield return WaitForTileOpDone();        // (사실상 필요 없지만 안전용)
+            isTileOpRunning = true;                  // 🔒
+
+            try
+            {
+                yield return StartCoroutine(body);   // 본‑작업
+            }
+            finally
+            {
+                isTileOpRunning = false;             // 🔓
+            }
+        }
+
+
 
         private struct DiscardRequest
         {
@@ -78,6 +110,7 @@ namespace MCRGame.UI
             IsAnimating = false;
             CanClick = false;
             requestedDiscardTile = null;
+            isTileOpRunning = false;
         }
 
 
@@ -200,13 +233,13 @@ namespace MCRGame.UI
             }
 
             // ★ AnimateInitHand 을 큐에 등록하고 끝날 때까지 대기
-            yield return AnimateInitHand();
+            yield return RunExclusive(AnimateInitHand());
 
             yield return new WaitForSeconds(0.5f);
             if (receivedTsumoTile.HasValue)
             {
                 // tsumo도 큐로 처리해도 좋지만, 기존처럼 바로 드롭
-                yield return AddTsumo(receivedTsumoTile.Value);
+                yield return RunExclusive(AddTsumo(receivedTsumoTile.Value));
             }
 
             IsInitHandComplete = true;
@@ -319,8 +352,7 @@ namespace MCRGame.UI
             }
 
             SortTileList();
-
-            yield return StartCoroutine(AnimateReposition());
+            yield return RunExclusive(AnimateReposition());
         }
 
         public IEnumerator AddInitFlowerTsumo(GameTile tile)
@@ -331,7 +363,7 @@ namespace MCRGame.UI
             string tileName = tile.ToCustomString();
             var newTileObj = AddTile(tileName);
             tsumoTile = newTileObj;
-            yield return StartCoroutine(AnimateTsumoDrop());
+            yield return RunExclusive(AnimateTsumoDrop());
 
             if (gameHand.HandSize == GameHand.FULL_HAND_SIZE)
                 tsumoTile = newTileObj;
@@ -341,7 +373,7 @@ namespace MCRGame.UI
             SortTileList();
             var prevSlideDuration = slideDuration;
             slideDuration = 0.1f;
-            yield return StartCoroutine(AnimateReposition());
+            yield return RunExclusive(AnimateReposition());
             slideDuration = prevSlideDuration;
             IsAnimating = false;
         }
@@ -357,7 +389,7 @@ namespace MCRGame.UI
             tsumoTile = newTileObj;
 
             // 3) 슬라이드 애니메이션 대신 드롭 애니메이션 시작
-            yield return StartCoroutine(AnimateTsumoDrop());
+            yield return RunExclusive(AnimateTsumoDrop());
         }
 
         private IEnumerator AnimateTsumoDrop()
@@ -505,7 +537,8 @@ namespace MCRGame.UI
             var prevSlideDuration = slideDuration;
             slideDuration = 0.1f;
             // 4) 나머지 타일들 부드럽게 재배치
-            yield return StartCoroutine(AnimateReposition());
+
+            yield return RunExclusive(AnimateReposition());
             slideDuration = prevSlideDuration;
             IsAnimating = false;
         }
@@ -522,7 +555,7 @@ namespace MCRGame.UI
             // 2) UI에 CallBlock 추가
             callBlockField.AddCallBlock(cbData);
             // 3) 처리 코루틴을 큐로 등록
-            StartCoroutine(ProcessCallUI(cbData));
+            StartCoroutine(RunExclusive(ProcessCallUI(cbData)));
         }
 
 
@@ -595,7 +628,7 @@ namespace MCRGame.UI
 
             // 3) 남은 tileObjects를 애니메이션으로 재배치
             Debug.Log("[GameHandManager] AnimateReposition 호출 전");
-            yield return StartCoroutine(AnimateReposition());
+            yield return RunExclusive(AnimateReposition());
             Debug.Log($"[GameHandManager] ProcessCallUI 완료 → 최종 남은 타일 개수: {tileObjects.Count}");
         }
 
@@ -711,7 +744,7 @@ namespace MCRGame.UI
                 discardQueue.Enqueue(new DiscardRequest(index, isTsumo));
 
                 // ▶️ 애니메이션 처리 코루틴을 큐에 등록
-                StartCoroutine(ProcessDiscardQueue());
+                StartCoroutine(RunExclusive(ProcessDiscardQueue()));
 
                 Debug.Log($"DiscardTile: {tileValue} ({customName}) 폐기 요청 등록.");
             }
@@ -729,7 +762,7 @@ namespace MCRGame.UI
             while (discardQueue.Count > 0)
             {
                 DiscardRequest request = discardQueue.Dequeue();
-                yield return StartCoroutine(ProcessDiscardRequest(request));
+                yield return RunExclusive(ProcessDiscardRequest(request));
             }
             isSliding = false;
         }
@@ -803,6 +836,8 @@ namespace MCRGame.UI
                 if (rect != null)
                     rect.anchoredPosition = kvp.Value;
             }
+
+            yield return RunExclusive(AnimateReposition());
             IsAnimating = false;
         }
     }

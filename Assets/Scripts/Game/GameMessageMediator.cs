@@ -125,7 +125,26 @@ namespace MCRGame.Game
                     }
                     break;
 
+                case GameWSActionType.END_GAME:
+                    Debug.Log("[GameMessageMediator] END_GAME event received.");
 
+                    // 1) 최종 점수 파싱
+                    List<int> finalScores = null;
+                    if (message.Data.TryGetValue("players_score", out JToken finalScoreToken))
+                    {
+                        finalScores = finalScoreToken.ToObject<List<int>>();
+                        Debug.Log("[GameMessageMediator] Final scores: "
+                                  + string.Join(", ", finalScores));
+
+                        // 점수 갱신 (순위 팝업이나 UI용)
+                        GameManager.Instance.UpdatePlayerScores(finalScores);
+                    }
+                    else
+                    {
+                        Debug.LogWarning("[GameMessageMediator] END_GAME: players_score 키가 없습니다.");
+                    }
+                    GameManager.Instance.EndScorePopup();
+                    break;
                 case GameWSActionType.UPDATE_ACTION_ID:
                     Debug.Log("[GameMessageMediator] GAME_START_INFO event received.");
                     Debug.Log("[GameMessageMediator] Data: " + message.Data.ToString());
@@ -146,7 +165,8 @@ namespace MCRGame.Game
                 case GameWSActionType.TSUMO_ACTIONS:
                     Debug.Log("[GameMessageMediator] Tsumo actions received.");
                     // message.Data는 JObject이므로 바로 넘겨줌
-                    GameManager.Instance.ProcessTsumoActions(message.Data);
+                    // GameManager.Instance.ProcessTsumoActions(message.Data);
+                    StartCoroutine(GameManager.Instance.WaitAndProcessTsumo(message.Data));
                     break;
                 case GameWSActionType.DISCARD_ACTIONS:
                 case GameWSActionType.ROBBING_KONG_ACTIONS:
@@ -159,6 +179,7 @@ namespace MCRGame.Game
                     break;
                 case GameWSActionType.FLOWER:
                     Debug.Log("[GameMessageMediator] Flower Confirmed.");
+                    GameManager.Instance.IsFlowerConfirming = true;
                     StartCoroutine(GameManager.Instance.ConfirmFlower(message.Data));
                     break;
                 case GameWSActionType.PON:
