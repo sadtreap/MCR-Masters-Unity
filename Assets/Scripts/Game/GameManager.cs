@@ -360,7 +360,6 @@ namespace MCRGame.Game
                 RelativeSeat relativeSeat = RelativeSeatExtensions.CreateFromAbsoluteSeats(currentSeat: MySeat, targetSeat: seat);
                 Debug.Log("ConfirmCallBlock: relativeSeat = " + relativeSeat);
 
-                moveTurn(relativeSeat);
 
                 Debug.Log("ConfirmCallBlock: Step 7 - Accessing callBlockData.SourceSeat");
                 RelativeSeat CallBlockSourceSeat = RelativeSeat.SELF;
@@ -430,6 +429,8 @@ namespace MCRGame.Game
                     Debug.Log("ConfirmCallBlock: Removing last discard for sourceRelativeSeat = " + sourceRelativeSeat);
                     discardManager.RemoveLastDiscard(seat: sourceRelativeSeat);
                 }
+                
+                moveTurn(relativeSeat);
             }
             catch (Exception ex)
             {
@@ -602,7 +603,6 @@ namespace MCRGame.Game
 
         public void ProcessTsumoActions(JObject data)
         {
-            moveTurn(RelativeSeat.SELF);
             UpdateLeftTilesByDelta(-1);
 
             ClearActionUI();
@@ -658,6 +658,8 @@ namespace MCRGame.Game
                     }
                 }
             }
+            
+            moveTurn(RelativeSeat.SELF);
         }
 
         private Sprite GetSpriteForAction(GameActionType type)
