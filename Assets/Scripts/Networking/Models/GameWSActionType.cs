@@ -62,5 +62,7 @@ namespace MCRGame.Net
         SET_TIMER,
         [EnumMember(Value = "draw")]
         DRAW,
+        [EnumMember(Value = "end_game")]
+        END_GAME,
     }
 }

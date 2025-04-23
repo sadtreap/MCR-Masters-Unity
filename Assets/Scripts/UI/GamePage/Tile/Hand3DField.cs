@@ -108,52 +108,41 @@ namespace MCRGame.UI
                     yield break;
 
                 int idx;
-                // 오른쪽 끝(리스트의 마지막 요소) 제거
                 if (req.discardRightmost || handTiles.Count == 1)
-                {
                     idx = handTiles.Count - 1;
-                }
                 else
-                {
-                    // 마지막 요소를 제외한 인덱스 중 랜덤 선택
                     idx = Random.Range(0, handTiles.Count - 1);
-                }
 
                 GameObject toRemove = handTiles[idx];
-
-                // UI만 제거 (데이터 업데이트는 외부에서 처리한다고 가정)
                 handTiles.RemoveAt(idx);
                 if (toRemove != null)
                     Destroy(toRemove);
+
                 tsumoTile = null;
+
+                // ⭐ 0.1초 대기 후 애니메이션 실행
+                yield return new WaitForSeconds(0.2f);
                 yield return StartCoroutine(AnimateReposition());
             }
             else if (req.Type == RequestType.DiscardMultiple)
             {
-                // 여러 개의 타일 삭제 요청 처리: tsumoTile(마지막 요소)는 후보에서 제외
                 if (handTiles.Count == 0)
                     yield break;
 
                 List<int> candidateIndices = new List<int>();
                 if (handTiles.Count > 1 && tsumoTile != null)
                 {
-                    // tsumoTile을 제외한 후보 인덱스 수집
                     for (int i = 0; i < handTiles.Count - 1; i++)
-                    {
                         candidateIndices.Add(i);
-                    }
                 }
                 else
                 {
                     for (int i = 0; i < handTiles.Count; i++)
-                    {
                         candidateIndices.Add(i);
-                    }
                 }
 
                 int discardCount = Mathf.Min(req.discardCount, candidateIndices.Count);
 
-                // 후보 인덱스 무작위 섞기 (Fisher-Yates)
                 for (int i = 0; i < candidateIndices.Count; i++)
                 {
                     int randIndex = Random.Range(i, candidateIndices.Count);
@@ -161,7 +150,7 @@ namespace MCRGame.UI
                     candidateIndices[i] = candidateIndices[randIndex];
                     candidateIndices[randIndex] = temp;
                 }
-                // 처음 discardCount개 선택 후 내림차순 정렬
+
                 List<int> indicesToDiscard = candidateIndices.GetRange(0, discardCount);
                 indicesToDiscard.Sort((a, b) => b.CompareTo(a));
 
@@ -172,8 +161,12 @@ namespace MCRGame.UI
                     if (toRemove != null)
                         Destroy(toRemove);
                 }
+
+                // ⭐ 0.1초 대기 후 애니메이션 실행
+                yield return new WaitForSeconds(0.2f);
                 yield return StartCoroutine(AnimateReposition());
             }
+
             else if (req.Type == RequestType.InitFlowerTsumo)
             {
                 GameObject newTile = CreateWhiteTile();

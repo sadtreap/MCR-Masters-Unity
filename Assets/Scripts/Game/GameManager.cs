@@ -12,6 +12,7 @@ using MCRGame.Common;
 using MCRGame.UI;
 using MCRGame.Net;
 using MCRGame.View;
+using MCRGame.Audio;
 
 
 namespace MCRGame.Game
@@ -30,8 +31,12 @@ namespace MCRGame.Game
         private GameHandManager gameHandManager;
         public GameHand GameHand => gameHandManager != null ? gameHandManager.GameHand : null;
 
+        public bool IsFlowerConfirming = false;
+
         [SerializeField]
         private DiscardManager discardManager;
+
+        public bool IsRightClickTsumogiri;
 
         public const int MAX_TILES = 144;
         public const int MAX_PLAYERS = 4;
@@ -88,6 +93,7 @@ namespace MCRGame.Game
         [Header("Profile UI (SELF, SHIMO, TOI, KAMI 순서)")]
         [SerializeField] private Image[] profileImages = new Image[4];
         [SerializeField] private Image[] profileFrameImages = new Image[4];
+        [SerializeField] private Image[] BlinkTurnImages = new Image[4];
         [SerializeField] private TextMeshProUGUI[] nicknameTexts = new TextMeshProUGUI[4];
         [SerializeField] private Image[] flowerImages = new Image[4];
         [SerializeField] private TextMeshProUGUI[] flowerCountTexts = new TextMeshProUGUI[4];
@@ -117,6 +123,7 @@ namespace MCRGame.Game
         [SerializeField] private Sprite kanButtonSprite;
         [SerializeField] private Sprite huButtonSprite;
         [SerializeField] private Sprite flowerButtonSprite;
+        [SerializeField] private GameObject backButtonPrefab;
 
         [Header("Timer UI")]
         [SerializeField] private TextMeshProUGUI timerText;
@@ -133,6 +140,53 @@ namespace MCRGame.Game
 
         public bool isInitHandDone = false;
         public List<GameWSMessage> pendingFlowerReplacement = new();
+
+        private int prevBlinkSeat = -1;
+
+        public void UpdateCurrentTurnEffect()
+        {
+            int currentIndex = (int)currentTurnSeat;
+
+            // 이전 효과 정지
+            if (prevBlinkSeat >= 0 && prevBlinkSeat < profileFrameImages.Length)
+            {
+                var oldBlink = BlinkTurnImages[prevBlinkSeat];
+                var oldEffect = oldBlink.GetComponent<BlinkTurnEffect>();
+                oldEffect?.BlinkEffectOff();
+            }
+
+            // 새 효과 실행
+            if (currentIndex >= 0 && currentIndex < profileFrameImages.Length)
+            {
+                var newBlink = BlinkTurnImages[currentIndex];
+                var newEffect = newBlink.GetComponent<BlinkTurnEffect>();
+                newEffect?.BlinkEffectOn();
+            }
+
+            prevBlinkSeat = currentIndex;
+        }
+        public void ResetAllBlinkTurnEffects()
+        {
+            foreach (var imgObj in BlinkTurnImages)
+            {
+                if (imgObj == null) continue;
+
+                var effect = imgObj.GetComponent<BlinkTurnEffect>();
+                if (effect != null)
+                {
+                    effect.BlinkEffectOff();  // → 알파값도 0 처리됨
+                }
+            }
+            prevBlinkSeat = -1;
+        }
+        public IEnumerator WaitAndProcessTsumo(JObject data)
+        {
+            // GameManager 가 아직 뜨지 않은 경우도 고려
+            yield return new WaitUntil(() =>
+                !IsFlowerConfirming);
+
+            ProcessTsumoActions(data);
+        }
 
         public void UpdatePlayerScores(List<int> playersScores)
         {
@@ -155,6 +209,7 @@ namespace MCRGame.Game
                 gameHandManager.CanClick = false;
             }
             currentTurnSeat = seat;
+            UpdateCurrentTurnEffect();
             Debug.Log($"Current turn: {currentTurnSeat.ToString()}");
         }
 
@@ -272,6 +327,9 @@ namespace MCRGame.Game
                 {
                     Debug.Log("ConfirmCallBlock: 'call_block_data' is null.");
                 }
+
+                // call block audio
+                ActionAudioManager.Instance?.EnqueueCallSound(callBlockData.Type);
 
                 Debug.Log("ConfirmCallBlock: Step 4 - Parsing 'has_tsumo_tile'");
                 bool has_tsumo_tile = false;
@@ -406,16 +464,19 @@ namespace MCRGame.Game
             GameTile floweredTile = (GameTile)data["tile"].ToObject<int>();
             AbsoluteSeat floweredSeat = (AbsoluteSeat)data["seat"].ToObject<int>();
             RelativeSeat floweredRelativeSeat = RelativeSeatExtensions.CreateFromAbsoluteSeats(currentSeat: MySeat, targetSeat: floweredSeat);
+
+            ActionAudioManager.Instance?.EnqueueFlowerSound();
+
             if (floweredRelativeSeat == RelativeSeat.SELF)
             {
+                bool animateDone = false;
+                yield return gameHandManager.RunExclusive(gameHandManager.ApplyFlower(tile: floweredTile));
                 int currentFlowerCount = flowerCountMap[floweredRelativeSeat];
                 int previousCount = currentFlowerCount;
                 currentFlowerCount++;
 
-                bool animateDone = false;
 
                 StartCoroutine(AnimateFlowerCount(floweredRelativeSeat, previousCount, currentFlowerCount, () => { animateDone = true; }));
-                yield return StartCoroutine(gameHandManager.ApplyFlower(tile: floweredTile));
                 yield return new WaitUntil(() => animateDone);
                 SetFlowerCount(floweredRelativeSeat, currentFlowerCount);
             }
@@ -437,10 +498,14 @@ namespace MCRGame.Game
 
                 SetFlowerCount(floweredRelativeSeat, currentFlowerCount);
             }
+            IsFlowerConfirming = false;
         }
 
         public void ConfirmDiscard(JObject data)
         {
+            // discard sound audio
+            DiscardSoundManager.Instance.PlayDiscardSound();
+
             Debug.Log($"[GameManager.ConfirmDiscard] discard tile successfully");
             ClearActionUI();
             GameTile discardTile = (GameTile)data["tile"].ToObject<int>();
@@ -478,82 +543,121 @@ namespace MCRGame.Game
             }
         }
 
+        private GameObject additionalChoicesContainer;
+
         public void ProcessDiscardActions(JObject data)
         {
-            // 1) 기존 버튼 전부 제거
-            foreach (Transform c in actionButtonPanel) Destroy(c.gameObject);
+            ClearActionUI();
 
-            // 2) action_id, 남은 시간 초기화
+            // 1) action_id, 남은 시간 초기화
             currentActionId = data["action_id"].ToObject<int>();
             remainingTime = data["left_time"].ToObject<float>();
+            if (timerText != null)
+            {
+                timerText.gameObject.SetActive(remainingTime > 0f);
+                timerText.text = Mathf.FloorToInt(remainingTime).ToString();
+            }
 
-            // 3) JSON.NET으로 GameAction 리스트로 바로 변환
+            // 2) GameAction 리스트로 변환 후 정렬
             var list = data["actions"].ToObject<List<GameAction>>();
             list.Sort();
 
+            // 3) SKIP 버튼 (항상 제일 먼저)
             if (list.Count > 0)
             {
                 var skip = Instantiate(actionButtonPrefab, actionButtonPanel);
                 skip.GetComponent<Image>().sprite = skipButtonSprite;
                 skip.GetComponent<Button>().onClick.AddListener(OnSkipButtonClicked);
-                if (timerText != null)
+            }
+
+            // 4) CHII/KAN 그룹별 분기
+            var groups = list.GroupBy(a => a.Type).ToDictionary(g => g.Key, g => g.ToList());
+            foreach (var kv in groups)
+            {
+                var type = kv.Key;
+                var actionsOfType = kv.Value;
+
+                // CHII 또는 KAN 이고 선택지가 2개 이상이면 "추가 선택지" 버튼 생성
+                if ((type == GameActionType.CHII || type == GameActionType.KAN)
+                    && actionsOfType.Count > 1)
                 {
-                    timerText.gameObject.SetActive(remainingTime > 0f);
-                    timerText.text = Mathf.FloorToInt(remainingTime).ToString();
+                    var button = Instantiate(actionButtonPrefab, actionButtonPanel);
+                    button.GetComponent<Image>().sprite = GetSpriteForAction(type);
+                    button.GetComponent<Button>().onClick.AddListener(() =>
+                        ShowAdditionalActionChoices(type, actionsOfType));
+                }
+                else
+                {
+                    // 단일 혹은 그 외 행동: 바로 버튼 생성
+                    foreach (var act in actionsOfType)
+                    {
+                        var btnObj = Instantiate(actionButtonPrefab, actionButtonPanel);
+                        btnObj.GetComponent<Image>().sprite = GetSpriteForAction(act.Type);
+                        btnObj.GetComponent<Button>().onClick.AddListener(() =>
+                            OnActionButtonClicked(act));
+                    }
                 }
             }
-            // 4) GridLayoutGroup에 맞춰 버튼 생성
-            foreach (var act in list)
-            {
-                var btnObj = Instantiate(actionButtonPrefab, actionButtonPanel);
-                btnObj.GetComponent<Image>().sprite = GetSpriteForAction(act.Type);
-                btnObj.GetComponent<Button>().onClick.AddListener(() => OnActionButtonClicked(act));
-            }
-
-
         }
 
         public void ProcessTsumoActions(JObject data)
         {
             moveTurn(RelativeSeat.SELF);
             UpdateLeftTilesByDelta(-1);
-            // 1) 기존 버튼 전부 제거
-            foreach (Transform c in actionButtonPanel) Destroy(c.gameObject);
 
-            // 2) action_id, 남은 시간 초기화
+            ClearActionUI();
+
             currentActionId = data["action_id"].ToObject<int>();
             remainingTime = data["left_time"].ToObject<float>();
 
             GameTile newTsumoTile = (GameTile)data["tile"].ToObject<int>();
             if (gameHandManager.GameHand.HandSize < GameHand.FULL_HAND_SIZE)
             {
-                StartCoroutine(gameHandManager.AddTsumo(newTsumoTile));
+                StartCoroutine(gameHandManager.RunExclusive(gameHandManager.AddTsumo(newTsumoTile)));
             }
             if (timerText != null)
             {
                 timerText.gameObject.SetActive(remainingTime > 0f);
                 timerText.text = Mathf.FloorToInt(remainingTime).ToString();
             }
-            // 3) JSON.NET으로 GameAction 리스트로 바로 변환
+
             var list = data["actions"].ToObject<List<GameAction>>();
             list.Sort();
 
-            // 5) Skip 버튼 (마지막에)
+            // Skip 버튼
             if (list.Count > 0)
             {
                 var skip = Instantiate(actionButtonPrefab, actionButtonPanel);
                 skip.GetComponent<Image>().sprite = skipButtonSprite;
                 skip.GetComponent<Button>().onClick.AddListener(OnSkipButtonClickedAfterTsumo);
             }
-            // 4) GridLayoutGroup에 맞춰 버튼 생성
-            foreach (var act in list)
+
+            // CHII/KAN 추가선택지 로직
+            var groups = list.GroupBy(a => a.Type).ToDictionary(g => g.Key, g => g.ToList());
+            foreach (var kv in groups)
             {
-                var btnObj = Instantiate(actionButtonPrefab, actionButtonPanel);
-                btnObj.GetComponent<Image>().sprite = GetSpriteForAction(act.Type);
-                btnObj.GetComponent<Button>().onClick.AddListener(() => OnActionButtonClicked(act));
+                var type = kv.Key;
+                var actionsOfType = kv.Value;
+
+                if ((type == GameActionType.CHII || type == GameActionType.KAN)
+                    && actionsOfType.Count > 1)
+                {
+                    var button = Instantiate(actionButtonPrefab, actionButtonPanel);
+                    button.GetComponent<Image>().sprite = GetSpriteForAction(type);
+                    button.GetComponent<Button>().onClick.AddListener(() =>
+                        ShowAdditionalActionChoices(type, actionsOfType));
+                }
+                else
+                {
+                    foreach (var act in actionsOfType)
+                    {
+                        var btnObj = Instantiate(actionButtonPrefab, actionButtonPanel);
+                        btnObj.GetComponent<Image>().sprite = GetSpriteForAction(act.Type);
+                        btnObj.GetComponent<Button>().onClick.AddListener(() =>
+                            OnActionButtonClicked(act));
+                    }
+                }
             }
-
-
         }
 
         private Sprite GetSpriteForAction(GameActionType type)
@@ -567,6 +671,151 @@ namespace MCRGame.Game
                 GameActionType.FLOWER => flowerButtonSprite,
                 _ => null
             };
+        }
+        private float CreateChoiceTileAt(GameTile tv, float startX, float blockHeight, Transform parent)
+        {
+            // 1) 스프라이트
+            Sprite spr = Tile2DManager.Instance.get_sprite_by_name(tv.ToCustomString());
+            if (spr == null) return startX;
+
+            // 2) GameObject + Image
+            var go = new GameObject($"ChoiceTile_{tv}", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            var img = go.GetComponent<Image>();
+            img.sprite = spr;
+            img.preserveAspect = true;
+            img.raycastTarget = false;
+
+            // 3) RectTransform 세팅 (pivot.x = 0)
+            var rt = go.GetComponent<RectTransform>();
+            rt.pivot = new Vector2(0f, 0.5f);
+            rt.anchorMin = rt.anchorMax = new Vector2(0f, 0.5f);
+            float ratio = spr.rect.width / spr.rect.height;
+            rt.sizeDelta = new Vector2(blockHeight * ratio, blockHeight);
+
+            // 4) 위치: startX 그대로
+            rt.anchoredPosition = new Vector2(startX, 0f);
+
+            // 5) 리턴: startX + width (반너비 더하지 않음)
+            return startX + rt.sizeDelta.x;
+        }
+
+        private void ShowAdditionalActionChoices(GameActionType type, List<GameAction> choices)
+        {
+            // actionButtonPanel.gameObject.SetActive(false);
+            choices.Sort((a, b) => ((int)a.Tile).CompareTo((int)b.Tile));
+
+            // 1) 컨테이너 생성 + 반투명 검정 배경
+            additionalChoicesContainer = new GameObject("AdditionalChoicesContainer",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            additionalChoicesContainer.transform.SetParent(actionButtonPanel.parent, false);
+            var contRt = additionalChoicesContainer.GetComponent<RectTransform>();
+            var bgImg = additionalChoicesContainer.GetComponent<Image>();
+            bgImg.color = new Color(0, 0, 0, 0.5f);  // 반투명 검정
+
+            // 화면 아래쪽 30% 지점에 띄우기
+            contRt.anchorMin = contRt.anchorMax = new Vector2(0.5f, 0.3f);
+            contRt.pivot = new Vector2(0.5f, 0.5f);
+
+            // 2) 크기 계산
+            float blockH = 100f;
+            float margin = 20f;
+            int perCount = type == GameActionType.CHII ? 3 : 4;
+
+            // 각 그룹 너비: 타일 3/4장 너비 + 좌우 마진
+            var groupWS = choices.Select(act =>
+            {
+                var spr = Tile2DManager.Instance.get_sprite_by_name(act.Tile.ToCustomString());
+                float ratio = spr.rect.width / spr.rect.height;
+                return blockH * ratio * perCount + margin * 2;
+            }).ToList();
+
+            float totalW = groupWS.Sum()
+                             + /*그룹 간격*/50f * (choices.Count - 1)
+                             + margin * 2;
+            float totalH = blockH + margin * 2;
+            contRt.sizeDelta = new Vector2(totalW, totalH);
+
+            // 3) Holder (HorizontalLayout) 세팅
+            var holder = new GameObject("ChoicesHolder", typeof(RectTransform));
+            holder.transform.SetParent(additionalChoicesContainer.transform, false);
+            var hRt = holder.GetComponent<RectTransform>();
+            hRt.anchorMin = new Vector2(0, 1);
+            hRt.anchorMax = new Vector2(0, 1);
+            hRt.pivot = new Vector2(0, 1);
+            hRt.anchoredPosition = new Vector2(margin, -margin);
+            hRt.sizeDelta = new Vector2(totalW - margin * 2, blockH);
+
+            var hlg = holder.AddComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 30f;                  // 그룹 간 간격
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+            hlg.childAlignment = TextAnchor.UpperLeft;
+
+            // 4) 각 선택지 그룹 버튼 생성
+            for (int i = 0; i < choices.Count; i++)
+            {
+                var act = choices[i];
+                float gW = groupWS[i];
+
+                var choiceGO = new GameObject($"Choice_{i}",
+                    typeof(RectTransform),
+                    typeof(LayoutElement),
+                    typeof(Button),
+                    typeof(Image));
+                choiceGO.transform.SetParent(holder.transform, false);
+
+                // 크기
+                var cRt = choiceGO.GetComponent<RectTransform>();
+                cRt.sizeDelta = new Vector2(gW, blockH);
+                var le = choiceGO.GetComponent<LayoutElement>();
+                le.preferredWidth = gW;
+                le.preferredHeight = blockH;
+
+                // 투명하지만 Raycast 가능한 Image
+                var bg = choiceGO.GetComponent<Image>();
+                bg.color = new Color(0, 0, 0, 0f);
+                bg.raycastTarget = true;
+
+                // 버튼 클릭
+                var btn = choiceGO.GetComponent<Button>();
+                btn.targetGraphic = bg;
+                btn.onClick.AddListener(() =>
+                {
+                    OnActionButtonClicked(act);
+                    Destroy(additionalChoicesContainer);
+                });
+
+                // 내부 타일 배치 (간격 0)
+                float x = 0f;
+                for (int j = 0; j < perCount; j++)
+                {
+                    GameTile tile = (type == GameActionType.CHII)
+                        ? (GameTile)((int)act.Tile + j)
+                        : act.Tile;
+
+                    x = CreateChoiceTileAt(tile, x, blockH, choiceGO.transform);
+                }
+            }
+
+            // 5) 뒤로가기 버튼 — 레이아웃 제외, 컨테이너 우상단 고정
+            if (backButtonPrefab != null)
+            {
+                var back = Instantiate(backButtonPrefab, additionalChoicesContainer.transform);
+                var bRt = back.GetComponent<RectTransform>();
+                bRt.anchorMin = bRt.anchorMax = new Vector2(1, 1);
+                bRt.pivot = new Vector2(1, 1);
+                bRt.anchoredPosition = new Vector2(-margin, -margin);
+
+                var ig = back.gameObject.AddComponent<LayoutElement>();
+                ig.ignoreLayout = true;
+
+                back.GetComponent<Button>().onClick.AddListener(() =>
+                {
+                    Destroy(additionalChoicesContainer);
+                    actionButtonPanel.gameObject.SetActive(true);
+                });
+            }
         }
 
         private void OnActionButtonClicked(GameAction action)
@@ -613,12 +862,20 @@ namespace MCRGame.Game
         private void ClearActionButtons()
         {
             foreach (Transform c in actionButtonPanel) Destroy(c.gameObject);
+            if (additionalChoicesContainer != null)
+            {
+                Destroy(additionalChoicesContainer);
+                additionalChoicesContainer = null;
+            }
         }
-
         private void ClearActionUI()
         {
+            // 1) 액션 버튼들 제거
             ClearActionButtons();
-            if (timerText != null) timerText.gameObject.SetActive(false);
+
+            // 2) 타이머 숨기기
+            if (timerText != null)
+                timerText.gameObject.SetActive(false);
         }
 
         /// <summary>
@@ -655,7 +912,8 @@ namespace MCRGame.Game
 
         private IEnumerator InitRound()
         {
-            leftTiles = MAX_TILES - (GameHand.FULL_HAND_SIZE - 1) * MAX_PLAYERS - 1;
+            leftTiles = MAX_TILES - (GameHand.FULL_HAND_SIZE - 1) * MAX_PLAYERS;
+            IsFlowerConfirming = false;
             SetUIActive(true);
             ClearActionUI();
             discardManager.InitRound();
@@ -683,6 +941,8 @@ namespace MCRGame.Game
                 CurrentRound = Round.E1;
                 isGameStarted = true;
             }
+
+            ResetAllBlinkTurnEffects();
 
             UpdateCurrentRoundUI();
             InitSeatIndexMapping();
@@ -808,43 +1068,64 @@ namespace MCRGame.Game
             return defaultFrameSprite;
         }
 
+        // Deal 1~16 의 (idx0,1,2,3) → 좌석 순서
+        private static readonly AbsoluteSeat[][] DEAL_TABLE =
+        {
+        new[]{ AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH, AbsoluteSeat.WEST,  AbsoluteSeat.NORTH }, // 1
+        new[]{ AbsoluteSeat.NORTH, AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH, AbsoluteSeat.WEST  }, // 2
+        new[]{ AbsoluteSeat.WEST,  AbsoluteSeat.NORTH, AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH }, // 3
+        new[]{ AbsoluteSeat.SOUTH, AbsoluteSeat.WEST,  AbsoluteSeat.NORTH, AbsoluteSeat.EAST  }, // 4
+        new[]{ AbsoluteSeat.SOUTH, AbsoluteSeat.EAST,  AbsoluteSeat.NORTH, AbsoluteSeat.WEST  }, // 5
+        new[]{ AbsoluteSeat.EAST,  AbsoluteSeat.NORTH, AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH }, // 6
+        new[]{ AbsoluteSeat.NORTH, AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH, AbsoluteSeat.EAST  }, // 7
+        new[]{ AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH, AbsoluteSeat.EAST,  AbsoluteSeat.NORTH }, // 8
+        new[]{ AbsoluteSeat.NORTH, AbsoluteSeat.WEST,  AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH }, // 9
+        new[]{ AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH, AbsoluteSeat.NORTH, AbsoluteSeat.EAST  }, // 10
+        new[]{ AbsoluteSeat.SOUTH, AbsoluteSeat.EAST,  AbsoluteSeat.WEST,  AbsoluteSeat.NORTH }, // 11
+        new[]{ AbsoluteSeat.EAST,  AbsoluteSeat.NORTH, AbsoluteSeat.SOUTH, AbsoluteSeat.WEST  }, // 12
+        new[]{ AbsoluteSeat.WEST,  AbsoluteSeat.NORTH, AbsoluteSeat.SOUTH, AbsoluteSeat.EAST  }, // 13
+        new[]{ AbsoluteSeat.SOUTH, AbsoluteSeat.WEST,  AbsoluteSeat.EAST,  AbsoluteSeat.NORTH }, // 14
+        new[]{ AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH, AbsoluteSeat.NORTH, AbsoluteSeat.WEST  }, // 15
+        new[]{ AbsoluteSeat.NORTH, AbsoluteSeat.EAST,  AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH }, // 16
+    };
 
         /// <summary>
-        /// Round와 wind 정보를 바탕으로 seat<->player index 매핑 초기화
+        /// deal(1~16)에 대한 좌석-인덱스 매핑을 얻는다.
         /// </summary>
+        public static void GetSeatMappings(int deal,
+            out Dictionary<AbsoluteSeat, int> seatToPlayer,
+            out Dictionary<int, AbsoluteSeat> playerToSeat)
+        {
+
+            AbsoluteSeat[] order = DEAL_TABLE[deal];
+
+            seatToPlayer = new Dictionary<AbsoluteSeat, int>(4);
+            playerToSeat = new Dictionary<int, AbsoluteSeat>(4);
+            for (int i = 0; i < 4; i++)
+            {
+                seatToPlayer[order[i]] = i;
+                playerToSeat[i] = order[i];
+            }
+        }
+
+
+        /* 사용 예
+        Dictionary<AbsoluteSeat,int> seat2idx;
+        Dictionary<int,AbsoluteSeat> idx2seat;
+        DealSeatMapper.GetSeatMappings(1, out seat2idx, out idx2seat);
+        // seat2idx[AbsoluteSeat.EAST] == 0,  idx2seat[2] == AbsoluteSeat.WEST
+        */
         public void InitSeatIndexMapping()
         {
-            int shift = CurrentRound.Number() - 1;
-            string wind = CurrentRound.Wind();
 
-            var baseMapping = wind switch
-            {
-                "E" => new Dictionary<AbsoluteSeat, int> {
-                    { AbsoluteSeat.EAST, 0 }, { AbsoluteSeat.SOUTH, 1 },
-                    { AbsoluteSeat.WEST, 2 }, { AbsoluteSeat.NORTH, 3 } },
-                "S" => new Dictionary<AbsoluteSeat, int> {
-                    { AbsoluteSeat.EAST, 1 }, { AbsoluteSeat.SOUTH, 0 },
-                    { AbsoluteSeat.WEST, 3 }, { AbsoluteSeat.NORTH, 2 } },
-                "W" => new Dictionary<AbsoluteSeat, int> {
-                    { AbsoluteSeat.EAST, 2 }, { AbsoluteSeat.SOUTH, 3 },
-                    { AbsoluteSeat.WEST, 1 }, { AbsoluteSeat.NORTH, 0 } },
-                "N" => new Dictionary<AbsoluteSeat, int> {
-                    { AbsoluteSeat.EAST, 3 }, { AbsoluteSeat.SOUTH, 2 },
-                    { AbsoluteSeat.WEST, 0 }, { AbsoluteSeat.NORTH, 1 } },
-                _ => throw new System.Exception("Invalid wind: " + wind),
-            };
+            GetSeatMappings((int)CurrentRound, out seatToPlayerIndex, out playerIndexToSeat);
 
-            seatToPlayerIndex = new Dictionary<AbsoluteSeat, int>();
-            playerIndexToSeat = new Dictionary<int, AbsoluteSeat>();
-            foreach (var kv in baseMapping)
-            {
-                int mapped = (kv.Value + shift) % MAX_PLAYERS;
-                seatToPlayerIndex[kv.Key] = mapped;
-                playerIndexToSeat[mapped] = kv.Key;
-            }
+            // ➍ 내 절대 좌석 & 현재 턴 좌석
             MySeat = playerIndexToSeat[playerUidToIndex[PlayerDataManager.Instance.Uid]];
-            CurrentTurnSeat = RelativeSeatExtensions.CreateFromAbsoluteSeats(currentSeat: MySeat, targetSeat: AbsoluteSeat.EAST);
+            CurrentTurnSeat = RelativeSeatExtensions.CreateFromAbsoluteSeats(
+                                  currentSeat: MySeat, targetSeat: AbsoluteSeat.EAST);
         }
+
 
         public void UpdateLeftTilesByDelta(int delta)
         {
@@ -973,7 +1254,7 @@ namespace MCRGame.Game
             isInitHandDone = false;
             yield return StartCoroutine(InitHandFromMessage(tiles, tsumoTile));
             isInitHandDone = true;
-
+            yield return new WaitForSeconds(0.5f);
             Debug.Log("[GameMessageMediator] InitHand complete. Processing any queued flower replacement messages.");
 
             foreach (var msg in pendingFlowerReplacement)
@@ -1006,7 +1287,7 @@ namespace MCRGame.Game
             if (newTiles != null && appliedFlowers != null && flowerCounts != null)
             {
                 Debug.Log("[GameMessageMediator] Starting flower replacement coroutine.");
-                StartCoroutine(StartFlowerReplacement(newTiles, appliedFlowers, flowerCounts));
+                StartCoroutine(gameHandManager.RunExclusive(StartFlowerReplacement(newTiles, appliedFlowers, flowerCounts)));
             }
             else
             {
@@ -1032,7 +1313,7 @@ namespace MCRGame.Game
             if (gameHandManager != null)
             {
                 // 기본 init (initTiles 수만큼 4장씩 떨어뜨림)
-                StartCoroutine(gameHandManager.InitHand(initTiles, tsumoTile));
+                yield return gameHandManager.RunExclusive(gameHandManager.InitHand(initTiles, tsumoTile));
 
             }
             else
@@ -1210,8 +1491,8 @@ namespace MCRGame.Game
         // SELF인 경우 두 작업(ApplyFlower와 AddInitFlowerTsumo)을 순차적으로 실행합니다.
         private IEnumerator ProcessFlowerOperation(int index, List<GameTile> newTiles, List<GameTile> appliedFlowers, Action onComplete)
         {
-            yield return StartCoroutine(gameHandManager.ApplyFlower(appliedFlowers[index]));
-            yield return StartCoroutine(gameHandManager.AddInitFlowerTsumo(newTiles[index]));
+            yield return gameHandManager.RunExclusive(gameHandManager.ApplyFlower(appliedFlowers[index]));
+            yield return gameHandManager.RunExclusive(gameHandManager.AddInitFlowerTsumo(newTiles[index]));
             onComplete?.Invoke();
         }
 
@@ -1344,10 +1625,19 @@ namespace MCRGame.Game
             yield return StartCoroutine(cameraResultAnimator.PlayResultAnimation());
             yield return new WaitForSeconds(3f);
             cameraResultAnimator.ResetCameraState();
-            if (CurrentRound == Round.N4)
+            if (GameWS.Instance != null)
             {
-                EndScorePopup();
+                GameWS.Instance.SendGameEvent(GameWSActionType.GAME_EVENT, new
+                {
+                    event_type = (int)GameEventType.NEXT_ROUND_CONFIRM,
+                    data = new Dictionary<string, object>()
+                });
             }
+            ResetAllBlinkTurnEffects();
+            // if (CurrentRound == Round.N4)
+            // {
+            //     EndScorePopup();
+            // }
         }
 
         public IEnumerator ProcessHuHand(
@@ -1362,6 +1652,9 @@ namespace MCRGame.Game
             GameTile winningTile
         )
         {
+            ActionAudioManager.Instance?.EnqueueHuSound();
+
+
             isInitHandDone = false;
             ClearActionUI();
             gameHandManager.CanClick = false;
@@ -1399,6 +1692,7 @@ namespace MCRGame.Game
             Debug.Log("Canvas 활성화 완료.");
 
             UpdateScoreText();
+            ResetAllBlinkTurnEffects();
             if (GameWS.Instance != null)
             {
                 GameWS.Instance.SendGameEvent(GameWSActionType.GAME_EVENT, new
@@ -1407,10 +1701,10 @@ namespace MCRGame.Game
                     data = new Dictionary<string, object>()
                 });
             }
-            if (CurrentRound == Round.N4)
-            {
-                EndScorePopup();
-            }
+            // if (CurrentRound == Round.N4)
+            // {
+            //     EndScorePopup();
+            // }
         }
 
     }

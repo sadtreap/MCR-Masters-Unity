@@ -20,7 +20,7 @@ namespace MCRGame.UI
         [Tooltip("애니메이션 시작 X 위치 (왼쪽)")]
         private float startXOffset = -200f;
         [Tooltip("애니메이션 종료 X 위치 (오른쪽)")]
-        private float targetXOffset = 700f;
+        private float targetXOffset = 650f;
 
         [Header("Animation Settings")]
         private float entryDelay = 1f;
