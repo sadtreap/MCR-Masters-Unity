@@ -74,6 +74,10 @@ namespace MCRGame.UI
             // ❷ 락이 비어 있으면 정상 절차
             yield return WaitForTileOpDone();        // (사실상 필요 없지만 안전용)
             isTileOpRunning = true;                  // 🔒
+            // bool prevIsAnimating = IsAnimating;
+            bool prevCanClick = CanClick;
+            // IsAnimating = true;
+            CanClick = false;
 
             try
             {
@@ -81,6 +85,8 @@ namespace MCRGame.UI
             }
             finally
             {
+                // IsAnimating = prevIsAnimating;
+                CanClick = prevCanClick;
                 isTileOpRunning = false;             // 🔓
             }
         }
