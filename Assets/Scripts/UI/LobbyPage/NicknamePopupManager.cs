@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Networking;
+using UnityEngine.InputSystem;  // ← 추가
 using System.Collections;
 using MCRGame.Net;
 
@@ -9,7 +10,8 @@ namespace MCRGame.UI
     public class NicknamePopupManager : MonoBehaviour
     {
         [Header("UI References")]
-        [SerializeField] private GameObject popupPanel;          // 팝업 전체 Panel
+        [SerializeField] private GameObject popupPanel;          // 팝업 전체 Panel (풀스크린 덮개 역할)
+        [SerializeField] private RectTransform popupWindow;      // 실제 닉네임 입력창이 있는 자식 윈도우
         [SerializeField] private InputField nicknameInput;       // 새 닉네임 입력창
         [SerializeField] private Text currentNicknameText;       // 로비에 표시중인 닉네임 텍스트
         [SerializeField] private Button confirmButton;           // 변경 확인 버튼
@@ -18,19 +20,56 @@ namespace MCRGame.UI
         [Header("Dependencies")]
         [SerializeField] private PutNicknameApi putNicknameApi;  // 이전에 구현한 PUT API 컴포넌트
 
+        private Image blockerImage;   // 투명 이미지로 raycast 차단
+        private bool isNicknameSet = false;
+
         private void Awake()
         {
-            // 버튼에 리스너 연결
+            // 버튼 리스너
             confirmButton.onClick.AddListener(OnConfirmClicked);
+
+            // blocker 세팅: popupPanel에 Image 컴포넌트가 있어야 풀스크린 클릭을 가로챌 수 있음
+            blockerImage = popupPanel.GetComponent<Image>();
+            if (blockerImage == null)
+                blockerImage = popupPanel.AddComponent<Image>();
+            blockerImage.color = new Color(0, 0, 0, 0);  // 완전 투명
+            blockerImage.raycastTarget = false;          // 기본은 차단 OFF
         }
 
         private void Start()
         {
-            // new user인 경우에만 팝업을 자동으로 띄웁니다.
-            if (PlayerDataManager.Instance != null && PlayerDataManager.Instance.IsNewUser)
+            // new user인 경우 팝업 띄우기
+            if (PlayerDataManager.Instance != null
+                && (PlayerDataManager.Instance.IsNewUser || PlayerDataManager.Instance.Nickname == "")
+                && !isNicknameSet)
             {
-                popupPanel.SetActive(true);
+                ShowPopup();
             }
+        }
+
+        private void Update()
+        {
+            if (!popupPanel.activeSelf)
+                return;
+
+            // 팝업이 열린 상태면 blocker로 뒤쪽 클릭 막기
+            blockerImage.raycastTarget = true;
+
+            // Enter 키 눌렀을 때 확인 버튼 실행
+            if (Keyboard.current.enterKey.wasPressedThisFrame)
+            {
+                confirmButton.onClick.Invoke();
+            }
+        }
+
+        /// <summary>
+        /// 팝업 보이기
+        /// </summary>
+        private void ShowPopup()
+        {
+            popupPanel.SetActive(true);
+            // popupWindow만 상호작용 원하면, popupWindow 아래 자식들에만 RaycastTarget=true
+            // (InputField, Button 등)
         }
 
         /// <summary>
@@ -38,12 +77,11 @@ namespace MCRGame.UI
         /// </summary>
         public void ClosePopup()
         {
+            // blocker도 해제
+            blockerImage.raycastTarget = false;
             popupPanel.SetActive(false);
         }
 
-        /// <summary>
-        /// 확인 버튼 클릭 시 호출
-        /// </summary>
         private void OnConfirmClicked()
         {
             string newNick = nicknameInput.text.Trim();
@@ -56,15 +94,13 @@ namespace MCRGame.UI
             StartCoroutine(putNicknameApi.UpdateNickname(
                 newNick,
                 PlayerDataManager.Instance.AccessToken,
-                onSuccess: _ => StartCoroutine(FetchUserMe()), 
+                onSuccess: _ => StartCoroutine(FetchUserMe()),
                 onError: err => errorText.text = $"업데이트 실패: {err}"
             ));
+            // 닫기 전에 입력 잠시 비활성화하고 싶다면 여기서 처리
             ClosePopup();
         }
 
-        /// <summary>
-        /// PUT 성공 후 GET /user/me 해서 PlayerDataManager, UI 갱신
-        /// </summary>
         private IEnumerator FetchUserMe()
         {
             string url = CoreServerConfig.GetHttpUrl("/user/me");
@@ -76,16 +112,10 @@ namespace MCRGame.UI
 
                 if (www.result == UnityWebRequest.Result.Success)
                 {
-                    // JSON 파싱
                     UserMeResponse userData = JsonUtility.FromJson<UserMeResponse>(www.downloadHandler.text);
-
-                    // PlayerDataManager에 저장
                     PlayerDataManager.Instance.SetUserData(userData.uid, userData.nickname, userData.email);
-
-                    // 로비 UI에 반영
                     currentNicknameText.text = userData.nickname;
-
-                    // 팝업 닫기
+                    isNicknameSet = true;
                     ClosePopup();
                 }
                 else
