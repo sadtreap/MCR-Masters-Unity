@@ -12,6 +12,8 @@ namespace MCRGame.Net
         GAME_EVENT,
         [EnumMember(Value = "return_action")]
         RETURN_ACTION,
+        [EnumMember(Value = "reload_data")]
+        RELOAD_DATA,
         [EnumMember(Value = "game_start_info")]
         GAME_START_INFO,
         [EnumMember(Value = "init_event")]

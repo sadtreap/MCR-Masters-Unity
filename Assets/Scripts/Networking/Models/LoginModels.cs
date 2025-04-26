@@ -16,4 +16,16 @@ namespace MCRGame.Net
         public string token_type;
     }
 
+        /// <summary>
+    /// 서버에서 /api/v1/user/me 응답으로 내려주는 JSON 모델
+    /// {"uid":"string","nickname":"string","email":"string"}
+    /// </summary>
+    [System.Serializable]
+    public class UserMeResponse
+    {
+        public string uid;
+        public string nickname;
+        public string email;
+    }
+
 }

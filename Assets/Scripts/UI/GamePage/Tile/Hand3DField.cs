@@ -346,6 +346,38 @@ namespace MCRGame.UI
             RepositionTiles();
         }
 
+        public void ReloadInitHand(int handCount, bool includeTsumo)
+        {
+            // 기존 타일 삭제
+            foreach (var tile in handTiles)
+            {
+                if (tile != null)
+                    Destroy(tile);
+            }
+            handTiles.Clear();
+            tsumoTile = null;
+
+            int totalTiles = handCount;
+            for (int i = 0; i < totalTiles; i++)
+            {
+                // tsumo 타일은 마지막 인덱스에 배치
+                if (includeTsumo && i == totalTiles - 1)
+                {
+                    tsumoTile = CreateWhiteTile();
+                    if (tsumoTile != null)
+                        handTiles.Add(tsumoTile);
+                }
+                else
+                {
+                    GameObject tile = CreateWhiteTile();
+                    if (tile != null)
+                        handTiles.Add(tile);
+                }
+            }
+            // 즉시 재배치 (애니메이션 없이)
+            RepositionTiles();
+        }
+
         // ---------------------------
         // 초기 패 생성: 13개 또는 13개 + tsumo (총 14개)를 즉시 생성 및 배치 (tsumo는 마지막 요소)
         public void InitHand(bool includeTsumo)
