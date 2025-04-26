@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System;
 using System.Text;
+using Unity.Mathematics;
 
 namespace MCRGame.UI
 {
@@ -15,7 +16,6 @@ namespace MCRGame.UI
         // 참조할 UI 요소들 (인스펙터에서 할당)
         [Header("UI References")]
         [SerializeField] private GameObject TilePanel;
-        [SerializeField] private GameObject TsumoPanel;
         [SerializeField] private TextMeshProUGUI singleScoreText;
         [SerializeField] private TextMeshProUGUI totalScoreText;
         [SerializeField] private TextMeshProUGUI winnerNicknameText;
@@ -23,10 +23,9 @@ namespace MCRGame.UI
         [SerializeField] private Image characterImage;
         [SerializeField] private Image flowerImage;
         [SerializeField] private Button okButton;
-        [SerializeField] private CallBlockField2D CallBlockOrigin;
         [SerializeField] private WinningHandDisplay winningHandDisplay;
+        [SerializeField] private GameObject winningHandOrigin;
         [SerializeField] private GameObject scorePannel;
-
         [SerializeField] private TextMeshProUGUI scoreTextPrefab;
 
         // 팝업 초기화 메서드
@@ -35,18 +34,23 @@ namespace MCRGame.UI
             // 점수 표시
             singleScoreText.text = $"{scoreData.singleScore:N0}";
             totalScoreText.text = $"{scoreData.totalScore:N0}";
-            winningHandDisplay.ShowWinningHand(scoreData);
-            foreach(var callBlock in scoreData.callBlocks){
-                CallBlockOrigin.AddCallBlock(callBlock);
+
+            int kongCount = 0;
+            foreach (var c in scoreData.callBlocks){
+                if(c.Type == CallBlockType.AN_KONG || c.Type == CallBlockType.SHOMIN_KONG || c.Type == CallBlockType.DAIMIN_KONG) kongCount++;
             }
+            float tileSize = 1.2f;
+            //winningHandOrigin.transform.localScale = -
+
+            winningHandDisplay.ShowWinningHand(scoreData);
             // 승자 정보
-            winnerNicknameText.text = GameManager.Instance.Players[GameManager.Instance.seatToPlayerIndex[scoreData.winnerSeat]].Nickname;
+            //winnerNicknameText.text = GameManager.Instance.Players[GameManager.Instance.seatToPlayerIndex[scoreData.winnerSeat]].Nickname;
             //characterImage.sprite = scoreData.characterSprite;
 
             DisplayYakuScores(scorePannel.GetComponent<RectTransform>(), scoreTextPrefab, scoreData.yaku_score_list);
 
             // 꽃 패 개수 (있을 경우만 표시)
-            flowerCountText.text = scoreData.flowerCount > 0 ? scoreData.flowerCount.ToString() : "";
+            flowerCountText.text = scoreData.flowerCount > 0 ? "x" + scoreData.flowerCount.ToString() : "";
             flowerImage.gameObject.SetActive(scoreData.flowerCount > 0);
 
             // 확인 버튼 이벤트
