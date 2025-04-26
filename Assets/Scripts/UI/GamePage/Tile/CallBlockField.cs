@@ -2,7 +2,6 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using MCRGame.Common;
-using System;
 
 namespace MCRGame.UI
 {
@@ -39,6 +38,71 @@ namespace MCRGame.UI
             else
             {
                 ClearAllCallBlocks();
+            }
+        }
+
+
+        public void ReloadCallBlockListImmediate(List<CallBlockData> data)
+        {
+            ClearAllCallBlocks();
+            foreach (CallBlockData block in data){
+                AddCallBlockImmediate(block);
+            }
+        }
+
+        public void AddCallBlockImmediate(CallBlockData data)
+        {
+            if (data.Type == CallBlockType.SHOMIN_KONG)
+            {
+                foreach (var go in callBlocks)
+                {
+                    var cb = go.GetComponent<CallBlock>();
+                    if (cb != null && cb.Data.Type == CallBlockType.PUNG && cb.Data.FirstTile == data.FirstTile)
+                    {
+                        cb.ApplyShominKong();
+                        return;
+                    }
+                }
+                return;
+            }
+
+            // 1) 새 GameObject 생성
+            GameObject callBlockObj = new GameObject("CallBlock");
+            callBlockObj.transform.SetParent(transform, false);
+            callBlockObj.transform.localRotation = Quaternion.identity;
+            callBlockObj.transform.localScale = Vector3.one;
+
+            // 2) CallBlock 컴포넌트 세팅
+            var callBlock = callBlockObj.AddComponent<CallBlock>();
+            callBlock.Data = new CallBlockData(
+                data.Type,
+                data.FirstTile,
+                data.SourceSeat,
+                data.SourceTileIndex
+            );
+            callBlock.InitializeCallBlock();
+
+            // 3) 리스트에 보관
+            callBlocks.Add(callBlockObj);
+
+            // 4) 위치 계산
+            PositionNewCallBlock(callBlockObj);
+            callBlockObj.transform.localPosition = callBlockObj.transform.localPosition; // final 위치
+
+            // 5) 머티리얼을 불투명(opaque) 상태로 보장
+            var renderers = callBlockObj.GetComponentsInChildren<Renderer>();
+            foreach (var r in renderers)
+            {
+                foreach (var mat in r.materials)
+                {
+                    SetMaterialOpaque(mat);
+                    if (mat.HasProperty("_Color"))
+                    {
+                        var c = mat.color;
+                        c.a = 1f;
+                        mat.color = c;
+                    }
+                }
             }
         }
 

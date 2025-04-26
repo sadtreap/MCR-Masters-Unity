@@ -53,12 +53,17 @@ namespace MCRGame.UI
             imageFieldRect.anchoredPosition = originalPos;
         }
 
+        public void ResetPosition()
+        {
+            imageFieldRect.anchoredPosition = originalPos;
+        }
+
         // 클릭
         public void OnPointerClick(PointerEventData eventData)
         {
             if (eventData.button != PointerEventData.InputButton.Left) return;
-            if (gameHandManager == null || !gameHandManager.CanClick) return;
-            gameHandManager.CanClick = false;
+            if (!GameManager.Instance.CanClick) return;
+            GameManager.Instance.CanClick = false;
             // 서버 검증 요청
             gameHandManager.RequestDiscard(this);
         }

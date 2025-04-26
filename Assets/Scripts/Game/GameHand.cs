@@ -42,6 +42,32 @@ namespace MCRGame.Game
             TsumoTile = null;
         }
 
+        public static GameHand CreateFromReload(
+            List<GameTile> rawTiles,
+            List<CallBlockData> rawCallBlocks,
+            GameTile? tsumoTile
+        )
+        {
+            var hand = new GameHand();
+
+            hand.Tiles = rawTiles
+                .GroupBy(t => t)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            hand.CallBlockData = rawCallBlocks
+                .Select(cb => new CallBlockData(
+                    cb.Type,
+                    cb.FirstTile,
+                    cb.SourceSeat,
+                    cb.SourceTileIndex
+                ))
+                .ToList();
+
+            hand.TsumoTile = tsumoTile;
+
+            return hand;
+        }
+
         public void Clear()
         {
             Tiles.Clear();

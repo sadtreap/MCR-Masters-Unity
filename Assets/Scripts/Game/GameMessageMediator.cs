@@ -113,6 +113,10 @@ namespace MCRGame.Game
                     }
                     break;
 
+                case GameWSActionType.RELOAD_DATA:
+                    Debug.Log($"[GameMessageMediator] {message.Event} received");
+                    GameManager.Instance.ReloadData(message.Data);
+                    break;
 
                 case GameWSActionType.GAME_START_INFO:
                     Debug.Log("[GameMessageMediator] UPDATE_ACTION_ID event received.");
@@ -182,6 +186,7 @@ namespace MCRGame.Game
                     GameManager.Instance.IsFlowerConfirming = true;
                     StartCoroutine(GameManager.Instance.ConfirmFlower(message.Data));
                     break;
+                
                 case GameWSActionType.PON:
                 case GameWSActionType.CHII:
                 case GameWSActionType.DAIMIN_KAN:

@@ -29,7 +29,8 @@ namespace MCRGame.Game
         // Inspector에서 할당하는 GameHandManager 오브젝트를 통해 GameHand를 관리합니다.
         [SerializeField]
         private GameHandManager gameHandManager;
-        public GameHand GameHand => gameHandManager != null ? gameHandManager.GameHand : null;
+        public GameHandManager GameHandManager => gameHandManager;
+        public GameHand GameHand => gameHandManager != null ? gameHandManager.GameHandPublic : null;
 
         public bool IsFlowerConfirming = false;
 
@@ -143,6 +144,11 @@ namespace MCRGame.Game
 
         private int prevBlinkSeat = -1;
 
+        public bool isActionUIActive = false;
+
+        public bool isAfterTsumoAction = false;
+        
+        public bool CanClick = false;
         public void UpdateCurrentTurnEffect()
         {
             int currentIndex = (int)currentTurnSeat;
@@ -201,12 +207,12 @@ namespace MCRGame.Game
             if (seat == RelativeSeat.SELF)
             {
                 IsMyTurn = true;
-                gameHandManager.CanClick = true;
+                CanClick = true;
             }
             else
             {
                 IsMyTurn = false;
-                gameHandManager.CanClick = false;
+                CanClick = false;
             }
             currentTurnSeat = seat;
             UpdateCurrentTurnEffect();
@@ -429,7 +435,7 @@ namespace MCRGame.Game
                     Debug.Log("ConfirmCallBlock: Removing last discard for sourceRelativeSeat = " + sourceRelativeSeat);
                     discardManager.RemoveLastDiscard(seat: sourceRelativeSeat);
                 }
-                
+
                 moveTurn(relativeSeat);
             }
             catch (Exception ex)
@@ -546,26 +552,25 @@ namespace MCRGame.Game
 
         private GameObject additionalChoicesContainer;
 
-        public void ProcessDiscardActions(JObject data)
+
+        public void ReloadDiscardActions(List<GameAction> list)
         {
             ClearActionUI();
 
-            // 1) action_id, 남은 시간 초기화
-            currentActionId = data["action_id"].ToObject<int>();
-            remainingTime = data["left_time"].ToObject<float>();
+            isAfterTsumoAction = false;
             if (timerText != null)
             {
                 timerText.gameObject.SetActive(remainingTime > 0f);
                 timerText.text = Mathf.FloorToInt(remainingTime).ToString();
             }
 
-            // 2) GameAction 리스트로 변환 후 정렬
-            var list = data["actions"].ToObject<List<GameAction>>();
             list.Sort();
 
             // 3) SKIP 버튼 (항상 제일 먼저)
             if (list.Count > 0)
             {
+                isActionUIActive = true;
+
                 var skip = Instantiate(actionButtonPrefab, actionButtonPanel);
                 skip.GetComponent<Image>().sprite = skipButtonSprite;
                 skip.GetComponent<Button>().onClick.AddListener(OnSkipButtonClicked);
@@ -601,32 +606,82 @@ namespace MCRGame.Game
             }
         }
 
-        public void ProcessTsumoActions(JObject data)
+        public void ProcessDiscardActions(JObject data)
         {
-            UpdateLeftTilesByDelta(-1);
-
             ClearActionUI();
 
+            isAfterTsumoAction = false;
+
+            // 1) action_id, 남은 시간 초기화
             currentActionId = data["action_id"].ToObject<int>();
             remainingTime = data["left_time"].ToObject<float>();
-
-            GameTile newTsumoTile = (GameTile)data["tile"].ToObject<int>();
-            if (gameHandManager.GameHand.HandSize < GameHand.FULL_HAND_SIZE)
-            {
-                StartCoroutine(gameHandManager.RunExclusive(gameHandManager.AddTsumo(newTsumoTile)));
-            }
             if (timerText != null)
             {
                 timerText.gameObject.SetActive(remainingTime > 0f);
                 timerText.text = Mathf.FloorToInt(remainingTime).ToString();
             }
 
+            // 2) GameAction 리스트로 변환 후 정렬
             var list = data["actions"].ToObject<List<GameAction>>();
             list.Sort();
+
+            // 3) SKIP 버튼 (항상 제일 먼저)
+            if (list.Count > 0)
+            {
+                isActionUIActive = true;
+
+                var skip = Instantiate(actionButtonPrefab, actionButtonPanel);
+                skip.GetComponent<Image>().sprite = skipButtonSprite;
+                skip.GetComponent<Button>().onClick.AddListener(OnSkipButtonClicked);
+            }
+
+            // 4) CHII/KAN 그룹별 분기
+            var groups = list.GroupBy(a => a.Type).ToDictionary(g => g.Key, g => g.ToList());
+            foreach (var kv in groups)
+            {
+                var type = kv.Key;
+                var actionsOfType = kv.Value;
+
+                // CHII 또는 KAN 이고 선택지가 2개 이상이면 "추가 선택지" 버튼 생성
+                if ((type == GameActionType.CHII || type == GameActionType.KAN)
+                    && actionsOfType.Count > 1)
+                {
+                    var button = Instantiate(actionButtonPrefab, actionButtonPanel);
+                    button.GetComponent<Image>().sprite = GetSpriteForAction(type);
+                    button.GetComponent<Button>().onClick.AddListener(() =>
+                        ShowAdditionalActionChoices(type, actionsOfType));
+                }
+                else
+                {
+                    // 단일 혹은 그 외 행동: 바로 버튼 생성
+                    foreach (var act in actionsOfType)
+                    {
+                        var btnObj = Instantiate(actionButtonPrefab, actionButtonPanel);
+                        btnObj.GetComponent<Image>().sprite = GetSpriteForAction(act.Type);
+                        btnObj.GetComponent<Button>().onClick.AddListener(() =>
+                            OnActionButtonClicked(act));
+                    }
+                }
+            }
+        }
+
+        public void ReloadTsumoActions(List<GameAction> list)
+        {
+            ClearActionUI();
+            isAfterTsumoAction = true;
+            if (timerText != null)
+            {
+                timerText.gameObject.SetActive(remainingTime > 0f);
+                timerText.text = Mathf.FloorToInt(remainingTime).ToString();
+            }
+
+            list.Sort();
+
 
             // Skip 버튼
             if (list.Count > 0)
             {
+                isActionUIActive = true;
                 var skip = Instantiate(actionButtonPrefab, actionButtonPanel);
                 skip.GetComponent<Image>().sprite = skipButtonSprite;
                 skip.GetComponent<Button>().onClick.AddListener(OnSkipButtonClickedAfterTsumo);
@@ -658,7 +713,71 @@ namespace MCRGame.Game
                     }
                 }
             }
-            
+
+            moveTurn(RelativeSeat.SELF);
+        }
+
+        public void ProcessTsumoActions(JObject data)
+        {
+            UpdateLeftTilesByDelta(-1);
+
+            ClearActionUI();
+
+            isAfterTsumoAction = true;
+
+            currentActionId = data["action_id"].ToObject<int>();
+            remainingTime = data["left_time"].ToObject<float>();
+
+            GameTile newTsumoTile = (GameTile)data["tile"].ToObject<int>();
+            if (gameHandManager.GameHandPublic.HandSize < GameHand.FULL_HAND_SIZE)
+            {
+                StartCoroutine(gameHandManager.RunExclusive(gameHandManager.AddTsumo(newTsumoTile)));
+            }
+            if (timerText != null)
+            {
+                timerText.gameObject.SetActive(remainingTime > 0f);
+                timerText.text = Mathf.FloorToInt(remainingTime).ToString();
+            }
+
+            var list = data["actions"].ToObject<List<GameAction>>();
+            list.Sort();
+
+            // Skip 버튼
+            if (list.Count > 0)
+            {
+                isActionUIActive = true;
+                var skip = Instantiate(actionButtonPrefab, actionButtonPanel);
+                skip.GetComponent<Image>().sprite = skipButtonSprite;
+                skip.GetComponent<Button>().onClick.AddListener(OnSkipButtonClickedAfterTsumo);
+            }
+
+            // CHII/KAN 추가선택지 로직
+            var groups = list.GroupBy(a => a.Type).ToDictionary(g => g.Key, g => g.ToList());
+            foreach (var kv in groups)
+            {
+                var type = kv.Key;
+                var actionsOfType = kv.Value;
+
+                if ((type == GameActionType.CHII || type == GameActionType.KAN)
+                    && actionsOfType.Count > 1)
+                {
+                    var button = Instantiate(actionButtonPrefab, actionButtonPanel);
+                    button.GetComponent<Image>().sprite = GetSpriteForAction(type);
+                    button.GetComponent<Button>().onClick.AddListener(() =>
+                        ShowAdditionalActionChoices(type, actionsOfType));
+                }
+                else
+                {
+                    foreach (var act in actionsOfType)
+                    {
+                        var btnObj = Instantiate(actionButtonPrefab, actionButtonPanel);
+                        btnObj.GetComponent<Image>().sprite = GetSpriteForAction(act.Type);
+                        btnObj.GetComponent<Button>().onClick.AddListener(() =>
+                            OnActionButtonClicked(act));
+                    }
+                }
+            }
+
             moveTurn(RelativeSeat.SELF);
         }
 
@@ -785,7 +904,6 @@ namespace MCRGame.Game
                 btn.onClick.AddListener(() =>
                 {
                     OnActionButtonClicked(act);
-                    Destroy(additionalChoicesContainer);
                 });
 
                 // 내부 타일 배치 (간격 0)
@@ -839,30 +957,32 @@ namespace MCRGame.Game
             GameWS.Instance.SendGameEvent(action: GameWSActionType.RETURN_ACTION, payload: payload);
         }
 
-        private void OnSkipButtonClicked()
+        public void OnSkipButtonClicked()
         {
+            ClearActionUI();
             Debug.Log("Skip 선택");
             GameAction SkipAction = new GameAction();
             SkipAction.Type = GameActionType.SKIP;
             SkipAction.Tile = GameTile.M1;
             SkipAction.SeatPriority = RelativeSeat.SELF;
             SendSelectedAction(action: SkipAction);
-            ClearActionUI();
         }
 
-        private void OnSkipButtonClickedAfterTsumo()
+        public void OnSkipButtonClickedAfterTsumo()
         {
+            ClearActionButtons();
             Debug.Log("Skip 선택");
             GameAction SkipAction = new GameAction();
             SkipAction.Type = GameActionType.SKIP;
             SkipAction.Tile = GameTile.M1;
             SkipAction.SeatPriority = RelativeSeat.SELF;
             SendSelectedAction(action: SkipAction);
-            ClearActionButtons();
         }
 
         private void ClearActionButtons()
         {
+            isActionUIActive = false;
+            // 1) 액션 버튼들 제거
             foreach (Transform c in actionButtonPanel) Destroy(c.gameObject);
             if (additionalChoicesContainer != null)
             {
@@ -872,7 +992,7 @@ namespace MCRGame.Game
         }
         private void ClearActionUI()
         {
-            // 1) 액션 버튼들 제거
+            isAfterTsumoAction = false;
             ClearActionButtons();
 
             // 2) 타이머 숨기기
@@ -911,11 +1031,96 @@ namespace MCRGame.Game
                 Debug.LogWarning("currentRoundText UI가 할당되지 않았습니다.");
         }
 
+        public void ReloadData(JObject data)
+        {
+            Players = data["player_list"]
+                .ToObject<List<Player>>();
 
-        private IEnumerator InitRound()
+            CurrentRound = (Round)data["current_round"].Value<int>();
+            InitRoundSub(CurrentRound);
+
+            currentTurnSeat = (RelativeSeat)data["current_turn_seat"].Value<int>();
+
+            leftTiles = data["tiles_remaining"].Value<int>();
+            UpdateLeftTiles(leftTiles);
+
+            List<List<GameTile>> kawas = data["kawas"]
+                .Select(arr => arr.ToObject<List<GameTile>>())
+                .ToList();
+
+            discardManager.ReloadAllDiscards(allTilesBySeat: kawas);
+
+            List<List<CallBlockData>> CallBlocksList = data["call_blocks_list"]
+                .Select(arr => arr.ToObject<List<CallBlockData>>())
+                .ToList();
+
+            List<GameTile> RawHand = data["hand"]
+                .Select(t => (GameTile)t.Value<int>())
+                .ToList();
+            List<CallBlockData> RawCallBockList = CallBlocksList[(int)MySeat];
+
+
+            var tsumoToken = data["tsumo_tile"];
+            GameTile? TsumoTile = (tsumoToken.Type == JTokenType.Null)
+                ? (GameTile?)null
+                : (GameTile)tsumoToken.Value<int>();
+
+            gameHandManager.ReloadInitHand(rawTiles: RawHand, rawCallBlocks: RawCallBockList, rawTsumoTile: TsumoTile);
+
+            List<int> HandsCount = data["hands_count"]
+                .ToObject<List<int>>();
+
+            List<int> TsumoTilesCount = data["tsumo_tiles_count"]
+                .ToObject<List<int>>();
+
+            for (int seat = 0; seat < MAX_PLAYERS; ++seat)
+            {
+                if ((RelativeSeat)seat == RelativeSeat.SELF) continue;
+                AbsoluteSeat absoluteSeat = RelativeSeatExtensions.ToAbsoluteSeat(rel: (RelativeSeat)seat, mySeat: MySeat);
+                callBlockFields[seat].ReloadCallBlockListImmediate(CallBlocksList[(int)absoluteSeat]);
+                playersHand3DFields[seat].ReloadInitHand(handCount: HandsCount[(int)absoluteSeat], includeTsumo: TsumoTilesCount[(int)absoluteSeat] == 1);
+            }
+
+            List<int> FlowersCount = data["flowers_count"]
+                .ToObject<List<int>>();
+            InitializeFlowerUI();
+            for (int seat = 0; seat < MAX_PLAYERS; ++seat)
+            {
+                AbsoluteSeat absoluteSeat = RelativeSeatExtensions.ToAbsoluteSeat(rel: (RelativeSeat)seat, mySeat: MySeat);
+                SetFlowerCount(rel: (RelativeSeat)seat, FlowersCount[(int)absoluteSeat]);
+            }
+
+            moveTurn(currentTurnSeat);
+            currentActionId = data["action_id"].Value<int>();
+
+            // remaining time 처리
+            List<List<GameAction>> ActionList = data["action_choices_list"]
+                .Select(arr => arr.ToObject<List<GameAction>>())
+                .ToList();
+            remainingTime = data["remaining_time"].Value<float>();
+
+            if (currentTurnSeat == RelativeSeat.SELF)
+            {
+                ReloadTsumoActions(ActionList[(int)MySeat]);
+            }
+            else
+            {
+                if (ActionList[(int)MySeat].Count > 0)
+                {
+                    ReloadDiscardActions(ActionList[(int)MySeat]);
+                }
+            }
+            Debug.Log($"[GameManager] ReloadData 완료 - 남은 시간: {remainingTime:F2}s");
+        }
+
+
+        private void InitRoundSub(Round round)
         {
             leftTiles = MAX_TILES - (GameHand.FULL_HAND_SIZE - 1) * MAX_PLAYERS;
             IsFlowerConfirming = false;
+            isActionUIActive = false;
+            isAfterTsumoAction = false;
+            CanClick = false;
             SetUIActive(true);
             ClearActionUI();
             discardManager.InitRound();
@@ -931,18 +1136,7 @@ namespace MCRGame.Game
                 hand3DField.clear();
             }
 
-            yield return new WaitForSeconds(2f);
-
-            if (isGameStarted)
-            {
-                if (CurrentRound.NextRound() != Round.END)
-                    CurrentRound = CurrentRound.NextRound();
-            }
-            else
-            {
-                CurrentRound = Round.E1;
-                isGameStarted = true;
-            }
+            CurrentRound = round;
 
             ResetAllBlinkTurnEffects();
 
@@ -953,6 +1147,21 @@ namespace MCRGame.Game
             UpdateScoreText();
             InitializeProfileUI();
             InitializeFlowerUI();
+        }
+
+        private void InitRound()
+        {
+            if (isGameStarted)
+            {
+                if (CurrentRound.NextRound() != Round.END)
+                    CurrentRound = CurrentRound.NextRound();
+            }
+            else
+            {
+                CurrentRound = Round.E1;
+                isGameStarted = true;
+            }
+            InitRoundSub(CurrentRound);
         }
 
 
@@ -1306,8 +1515,8 @@ namespace MCRGame.Game
         /// <param name="tsumoTile">서버에서 받은 tsumotile (없으면 null)</param>
         public IEnumerator InitHandFromMessage(List<GameTile> initTiles, GameTile? tsumoTile)
         {
-            yield return InitRound();
-            gameHandManager.CanClick = false;
+            InitRound();
+            CanClick = false;
             gameHandManager.IsAnimating = true;
             Debug.Log("GameManager: Initializing hand with received data for SELF.");
 
@@ -1357,7 +1566,7 @@ namespace MCRGame.Game
         {
             yield return StartCoroutine(FlowerReplacementCoroutine(newTiles, appliedFlowers, flowerCounts));
             gameHandManager.IsAnimating = false;
-            gameHandManager.CanClick = false;
+            CanClick = false;
         }
 
         private IEnumerator FlowerReplacementCoroutine(List<GameTile> newTiles, List<GameTile> appliedFlowers, List<int> flowerCounts)
@@ -1659,7 +1868,7 @@ namespace MCRGame.Game
 
             isInitHandDone = false;
             ClearActionUI();
-            gameHandManager.CanClick = false;
+            CanClick = false;
             gameHandManager.IsAnimating = true;
             handTiles.Sort();
             int singleScore = scoreResult.total_score + flowerCount;

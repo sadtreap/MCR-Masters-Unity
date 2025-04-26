@@ -31,14 +31,13 @@ namespace MCRGame.UI
         private GameObject tsumoTile;
 
         private Queue<DiscardRequest> discardQueue = new Queue<DiscardRequest>();
-        private bool isSliding = false;
 
 
         // round가 끝나면 다음 round 초기화를 위해서 다시 false로 돌려놓아야 함
         public bool IsInitHandComplete = false;
 
         // 외부에서 접근 가능한 프로퍼티
-        public GameHand GameHand => gameHand;
+        public GameHand GameHandPublic => gameHand;
         public CallBlockField CallBlockField => callBlockField;
 
         public const int FULL_HAND_SIZE = 14;
@@ -50,7 +49,6 @@ namespace MCRGame.UI
         // 호버는 애니메이션 중일 때만 막음
         public bool CanHover => !IsAnimating;
 
-        public bool CanClick;
 
         private TileManager requestedDiscardTile;
 
@@ -60,6 +58,19 @@ namespace MCRGame.UI
         {
             while (isTileOpRunning)            // 다른 연산이 끝날 때까지 한 프레임씩 기다린다
                 yield return null;
+        }
+
+        public void ResetPositionAll()
+        {
+            foreach (GameObject tileObj in tileObjects)
+            {
+                if (tileObj == null) continue;
+                TileManager tileManager = tileObj.GetComponent<TileManager>();
+                if (tileManager != null)
+                {
+                    tileManager.ResetPosition();
+                }
+            }
         }
 
         public IEnumerator RunExclusive(IEnumerator body)
@@ -75,9 +86,10 @@ namespace MCRGame.UI
             yield return WaitForTileOpDone();        // (사실상 필요 없지만 안전용)
             isTileOpRunning = true;                  // 🔒
             // bool prevIsAnimating = IsAnimating;
-            bool prevCanClick = CanClick;
+            bool prevCanClick = GameManager.Instance.CanClick;
+            // ResetPositionAll
             // IsAnimating = true;
-            CanClick = false;
+            GameManager.Instance.CanClick = false;
 
             try
             {
@@ -86,7 +98,7 @@ namespace MCRGame.UI
             finally
             {
                 // IsAnimating = prevIsAnimating;
-                CanClick = prevCanClick;
+                GameManager.Instance.CanClick = prevCanClick;
                 isTileOpRunning = false;             // 🔓
             }
         }
@@ -114,12 +126,30 @@ namespace MCRGame.UI
             tsumoTile = null;
             gameHand = new GameHand();
             IsAnimating = false;
-            CanClick = false;
             requestedDiscardTile = null;
             isTileOpRunning = false;
         }
 
-
+        public IEnumerator RequestDiscardRightmostTile()
+        {
+            TileManager tileManager = null;
+            if (tsumoTile != null)
+                tileManager = tsumoTile.GetComponent<TileManager>();
+            if (tileManager == null)
+            {
+                for (int i = tileObjects.Count - 1; i >= 0; --i)
+                {
+                    if (tileObjects[i] == null) continue;
+                    tileManager = tileObjects[i].GetComponent<TileManager>();
+                    if (tileManager != null) break;
+                }
+            }
+            if (tileManager != null)
+            {
+                RequestDiscard(tileManager);
+            }
+            yield break;
+        }
 
         /// <summary>
         /// TileManager에서 호출: 서버 검증 요청
@@ -200,8 +230,42 @@ namespace MCRGame.UI
             tileObjects.Clear();
             tsumoTile = null;
             callBlockField.InitializeCallBlockField();
-            CanClick = false;
             IsAnimating = true;
+            ResetPositionAll();
+        }
+
+        public void ReloadInitHand(
+            List<GameTile> rawTiles,
+            List<CallBlockData> rawCallBlocks,
+            GameTile? rawTsumoTile
+        )
+        {
+            clear();
+            gameHand = GameHand.CreateFromReload(rawTiles, rawCallBlocks, rawTsumoTile);
+
+            callBlockField.ReloadCallBlockListImmediate(rawCallBlocks);
+
+
+            foreach (var tile in rawTiles)
+            {
+                string tileName = tile.ToCustomString();
+                var go = AddTile(tileName);
+
+                var img = go.transform.Find("ImageField")?.GetComponent<Image>();
+                if (img != null)
+                    img.color = new Color(img.color.r, img.color.g, img.color.b, 1f);
+
+                if (rawTsumoTile.HasValue && tile == rawTsumoTile.Value && tsumoTile == null)
+                {
+                    tsumoTile = go;
+                }
+            }
+
+            if (!rawTsumoTile.HasValue)
+                tsumoTile = null;
+            
+            SortTileList();
+            ImmediateReplaceTiles();
         }
 
         public IEnumerator InitHand(List<GameTile> initTiles, GameTile? receivedTsumoTile)
@@ -255,6 +319,7 @@ namespace MCRGame.UI
         private IEnumerator AnimateInitHand()
         {
             IsAnimating = true;
+            ResetPositionAll();
             List<GameObject> tileObjectsExcludeTsumo = new List<GameObject>(tileObjects);
             tileObjectsExcludeTsumo.Remove(tsumoTile);
 
@@ -364,6 +429,7 @@ namespace MCRGame.UI
         public IEnumerator AddInitFlowerTsumo(GameTile tile)
         {
             IsAnimating = true;
+            ResetPositionAll();
             gameHand.ApplyTsumo(tile);
 
             string tileName = tile.ToCustomString();
@@ -400,8 +466,6 @@ namespace MCRGame.UI
 
         private IEnumerator AnimateTsumoDrop()
         {
-            bool prevCanClick = CanClick;
-            CanClick = false;
             if (tsumoTile == null) yield break;
 
             // --- 1) 정렬 & 목표 위치 계산 ---
@@ -471,7 +535,6 @@ namespace MCRGame.UI
             tsumoRt.anchoredPosition = tsumoTarget;
             if (img != null)
                 img.color = origColor;
-            CanClick = prevCanClick;
         }
 
 
@@ -520,6 +583,7 @@ namespace MCRGame.UI
         public IEnumerator ApplyFlower(GameTile tile)
         {
             IsAnimating = true;
+            ResetPositionAll();
             // 1) 이름으로 타일 오브젝트 찾기
             string tileName = tile.ToCustomString(); // :contentReference[oaicite:0]{index=0}
             int idx = tileObjects.FindIndex(go => go.name == tileName);
@@ -645,6 +709,7 @@ namespace MCRGame.UI
             if (IsAnimating == true)
                 alreadyAnimating = true;
             IsAnimating = true;
+            ResetPositionAll();
             if (tileObjects.Count == 0) yield break;
 
             // 기준 타일 너비 계산
@@ -764,19 +829,18 @@ namespace MCRGame.UI
         // 큐에 쌓인 폐기 요청들을 순차 처리하는 코루틴
         private IEnumerator ProcessDiscardQueue()
         {
-            isSliding = true;
             while (discardQueue.Count > 0)
             {
                 DiscardRequest request = discardQueue.Dequeue();
                 yield return RunExclusive(ProcessDiscardRequest(request));
             }
-            isSliding = false;
         }
 
         // 개별 폐기 요청 처리 코루틴: 타일 리스트에서 해당 타일 제거 후, 나머지 타일의 위치를 애니메이션으로 이동
         private IEnumerator ProcessDiscardRequest(DiscardRequest request)
         {
             IsAnimating = true;
+            ResetPositionAll();
             // 먼저, 해당 인덱스의 타일이 리스트에 남아 있다면 Destroy 처리
             if (request.index >= 0 && request.index < tileObjects.Count)
             {

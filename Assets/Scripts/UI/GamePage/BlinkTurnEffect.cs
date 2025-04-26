@@ -8,9 +8,9 @@ namespace MCRGame.UI
     {
         private Image targetImage;
         private Coroutine blinkCoroutine;
-        private float blinkDuration = 2f;
+        private float blinkDuration = 1f;
         private float maxAlpha = 1f;
-        private float minAlpha = 0.3f;
+        private float minAlpha = 0f;
 
         void Awake()
         {

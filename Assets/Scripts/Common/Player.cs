@@ -1,19 +1,25 @@
 using System;
+using Newtonsoft.Json;
 
 namespace MCRGame.Common
 {
     [Serializable]
     public class Player
     {
+        [JsonProperty("uid")]
         public string Uid { get; set; }
+
+        [JsonProperty("nickname")]
         public string Nickname { get; set; }
+
+        [JsonProperty("index")]
         public int Index { get; set; }
+
+        [JsonProperty("score")]
         public int Score { get; set; }
 
-        // 기본 생성자 (직렬화를 위해 필요할 수 있음)
         public Player() { }
 
-        // 생성자를 통한 초기화
         public Player(string uid, string nickname, int index, int score)
         {
             Uid = uid;

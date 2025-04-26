@@ -2,6 +2,8 @@ using UnityEngine;
 using System.Collections;
 using MCRGame.Common; // RelativeSeat, GameTile, 등
 using System.Collections.Generic;
+using System;
+using MCRGame.Game;
 
 namespace MCRGame.UI
 {
@@ -48,7 +50,85 @@ namespace MCRGame.UI
             }
             tileObjectDictionary.Clear();
         }
-        
+
+
+        public void ReloadAllDiscards(List<List<GameTile>> allTilesBySeat)
+        {
+            // 1) 기존 오브젝트 전부 삭제 & 리스트 초기화
+            foreach (var kvp in kawas)
+            {
+                var goList = kvp.Value;
+                foreach (var go in goList)
+                    if (go != null) Destroy(go);
+                goList.Clear();
+            }
+            tileObjectDictionary.Clear();
+
+            // 2) 각 좌석별로 받은 타일 리스트 즉시 배치
+            foreach (RelativeSeat seat in Enum.GetValues(typeof(RelativeSeat)))
+            {
+                int seatIdx = (int)seat;
+                if (seatIdx < 0 || seatIdx >= allTilesBySeat.Count)
+                    continue;
+
+                var tiles = allTilesBySeat[(int)RelativeSeatExtensions.ToAbsoluteSeat(rel:seat, mySeat:GameManager.Instance.MySeat)];
+                Transform origin = GetDiscardPosition(seat);
+                if (origin == null)
+                {
+                    Debug.LogWarning($"ReloadAllDiscards: discard position for {seat} is null");
+                    continue;
+                }
+
+                for (int i = 0; i < tiles.Count; i++)
+                {
+                    var tile = tiles[i];
+                    int row = i / maxTilesPerRow;
+                    int col = i % maxTilesPerRow;
+
+                    Vector3 offset = ComputeOffset(seat, col, row);
+                    Vector3 finalPos = origin.position + offset;
+                    Quaternion finalRot = origin.rotation;
+
+                    // 3D 타일 생성
+                    string prefabName = tile.ToCustomString();
+                    var go = Tile3DManager.Instance.Make3DTile(prefabName);
+                    if (go == null)
+                    {
+                        Debug.LogWarning($"ReloadAllDiscards: prefab not found for {tile}");
+                        continue;
+                    }
+
+                    // 부모 설정 및 위치/회전 즉시 적용
+                    go.transform.SetParent(origin, true);
+                    go.transform.position = finalPos;
+                    go.transform.rotation = finalRot;
+
+                    // 머티리얼을 Opaque, Alpha=1 로
+                    var rends = go.GetComponentsInChildren<Renderer>();
+                    foreach (var r in rends)
+                        foreach (var mat in r.materials)
+                        {
+                            if (mat.HasProperty("_Color"))
+                            {
+                                Color c = mat.color;
+                                c.a = 1f;
+                                mat.color = c;
+                            }
+                            SetMaterialOpaque(mat);
+                        }
+
+                    // 내부 데이터에 추가
+                    kawas[seat].Add(go);
+                    if (!tileObjectDictionary.TryGetValue(tile, out var list))
+                    {
+                        list = new List<GameObject>();
+                        tileObjectDictionary[tile] = list;
+                    }
+                    list.Add(go);
+                }
+            }
+        }
+
         public void RemoveLastDiscard(RelativeSeat seat)
         {
             // kawas에서 해당 좌석의 폐기 타일 리스트 가져오기
