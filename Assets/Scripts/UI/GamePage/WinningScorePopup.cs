@@ -41,7 +41,7 @@ namespace MCRGame.UI
 
             winningHandDisplay.ShowWinningHand(scoreData);
             // 승자 정보
-            winnerNicknameText.text = GameManager.Instance.Players[GameManager.Instance.seatToPlayerIndex[scoreData.winnerSeat]].Nickname;
+            //winnerNicknameText.text = GameManager.Instance.Players[GameManager.Instance.seatToPlayerIndex[scoreData.winnerSeat]].Nickname;
             //characterImage.sprite = scoreData.characterSprite;
 
             DisplayYakuScores(yakuOrigin.GetComponent<RectTransform>(), yakuObjectPrefab, scoreData.yaku_score_list);
@@ -102,7 +102,7 @@ namespace MCRGame.UI
             for (int i = 0; i < yakuScores.Count; i++)
             {
                 string name = Enum.GetName(typeof(Yaku), yakuScores[i].YakuId) ?? "";
-                string score = yakuScores[i].Score.ToString("N0");
+                string score = yakuScores[i].Score.ToString();
                 GameObject itemObj = Instantiate(yakuObjectPrefab, panel);
                 float animationDuration = 0.5f;
                 float delayMult = 0.8f;
@@ -132,7 +132,7 @@ namespace MCRGame.UI
             }
         }
 
-        public static void DisplayScores()
+        public void DisplayScores()
         {
             Debug.Log("Score");
         }
