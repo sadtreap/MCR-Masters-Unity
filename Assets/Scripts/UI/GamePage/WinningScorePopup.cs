@@ -35,13 +35,6 @@ namespace MCRGame.UI
             singleScoreText.text = $"{scoreData.singleScore:N0}";
             totalScoreText.text = $"{scoreData.totalScore:N0}";
 
-            int kongCount = 0;
-            foreach (var c in scoreData.callBlocks){
-                if(c.Type == CallBlockType.AN_KONG || c.Type == CallBlockType.SHOMIN_KONG || c.Type == CallBlockType.DAIMIN_KONG) kongCount++;
-            }
-            float tileSize = 1.2f;
-            //winningHandOrigin.transform.localScale = -
-
             winningHandDisplay.ShowWinningHand(scoreData);
             // 승자 정보
             winnerNicknameText.text = GameManager.Instance.Players[GameManager.Instance.seatToPlayerIndex[scoreData.winnerSeat]].Nickname;
