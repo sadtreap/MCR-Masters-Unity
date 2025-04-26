@@ -3,11 +3,13 @@ using TMPro;
 using UnityEngine.UI;
 using MCRGame.Common;
 using MCRGame.Game;
+using MCRGame.UI;
 using System.Collections.Generic;
 using System.Linq;
 using System;
 using System.Text;
 using Unity.Mathematics;
+using DG.Tweening;
 
 namespace MCRGame.UI
 {
@@ -25,8 +27,10 @@ namespace MCRGame.UI
         [SerializeField] private Button okButton;
         [SerializeField] private WinningHandDisplay winningHandDisplay;
         [SerializeField] private GameObject winningHandOrigin;
-        [SerializeField] private GameObject scorePannel;
+        [SerializeField] private GameObject yakuOrigin;
         [SerializeField] private TextMeshProUGUI scoreTextPrefab;
+        [SerializeField] private GameObject yakuObjectPrefab;
+        [SerializeField] private GameObject yakuPanel;
 
         // 팝업 초기화 메서드
         public void Initialize(WinningScoreData scoreData)
@@ -40,11 +44,7 @@ namespace MCRGame.UI
             winnerNicknameText.text = GameManager.Instance.Players[GameManager.Instance.seatToPlayerIndex[scoreData.winnerSeat]].Nickname;
             //characterImage.sprite = scoreData.characterSprite;
 
-            DisplayYakuScores(scorePannel.GetComponent<RectTransform>(), scoreTextPrefab, scoreData.yaku_score_list);
-
-            // 꽃 패 개수 (있을 경우만 표시)
-            flowerCountText.text = scoreData.flowerCount > 0 ? "x" + scoreData.flowerCount.ToString() : "";
-            flowerImage.gameObject.SetActive(scoreData.flowerCount > 0);
+            DisplayYakuScores(yakuOrigin.GetComponent<RectTransform>(), yakuObjectPrefab, scoreData.yaku_score_list);
 
             // 확인 버튼 이벤트
             okButton.onClick.RemoveAllListeners();
@@ -83,57 +83,59 @@ namespace MCRGame.UI
             }
             return sb.ToString();
         }
-        public static void DisplayYakuScores(RectTransform panel, TMP_Text textPrefab, List<YakuScore> yakuScores)
+        public void DisplayYakuScores(RectTransform panel, GameObject yakuObjectPrefab, List<YakuScore> yakuScores)
         {
-            float spacing = 30f;
-            float startOffset = 20f;
-            // 기존 텍스트 모두 삭제
+            // 기존 항목 정리
             foreach (Transform child in panel)
             {
-                if (child.GetComponent<TMP_Text>())
-                    Destroy(child.gameObject);
+                Destroy(child.gameObject);
             }
 
-            if (panel == null || textPrefab == null)
+            if (panel == null || yakuObjectPrefab == null)
             {
-                Debug.LogError("Panel or TextPrefab is null!");
+                Debug.LogError("Panel or YakuItemPrefab is null!");
                 return;
             }
-
-            float currentY = -startOffset;
-            // 폰트 크기 설정
-            float headerFontSize = 50f;
-            float entryFontSize = 40f;
-
-            // 헤더 생성
-            TMP_Text header = Instantiate(textPrefab, panel);
-            header.text = "<b>역 점수</b>";
-            header.alignment = TextAlignmentOptions.Center;
-            header.fontSize = headerFontSize;
-            header.rectTransform.anchoredPosition = new Vector2(100, currentY);
-            currentY -= spacing;
-
+            float startX = 50f;
+            float startY = -50f;
             // 각 야쿠 점수 표시
-            foreach (YakuScore yakuInfo in yakuScores)
+            for (int i = 0; i < yakuScores.Count; i++)
             {
-                string name = Enum.GetName(typeof(Yaku), yakuInfo.YakuId) ?? "";
-                string score = yakuInfo.Score.ToString("N0");
-                TMP_Text entry = Instantiate(textPrefab, panel);
-                entry.text = $"<b>{name}</b>: {score}점";
-                entry.fontSize = entryFontSize;
-                entry.alignment = TextAlignmentOptions.Left;
-                entry.rectTransform.anchoredPosition = new Vector2(0, currentY);
-                currentY -= spacing;
-            }
+                string name = Enum.GetName(typeof(Yaku), yakuScores[i].YakuId) ?? "";
+                string score = yakuScores[i].Score.ToString("N0");
+                GameObject itemObj = Instantiate(yakuObjectPrefab, panel);
+                float animationDuration = 0.5f;
+                float delayMult = 0.8f;
+                float panelWidth = yakuPanel.GetComponent<RectTransform>().rect.width;
+                int nOfRows = yakuScores.Count > 10 ? 5 : 4;
+                int nOfColumns = yakuScores.Count > 8 ? 3 : 2;
+                float yakuScale = panelWidth / nOfColumns / 550f;
+                float yakuWidth = 500f * yakuScale;
+                float yakuHeight = 100f * yakuScale;
+                if (itemObj.TryGetComponent<YakuObject>(out var item))
+                {
+                    item.SetYakuInfo(name, score);
+                    item.transform.localScale = Vector3.one * yakuScale;
+                    item.GetComponent<RectTransform>().anchoredPosition = 
+                    new Vector2(-10f + yakuWidth * (i / nOfRows), startY - yakuHeight * (i % nOfRows));
+                    item.GetComponent<RectTransform>().DOAnchorPosX(startX + yakuWidth * (i / nOfRows), animationDuration)
+                        .SetDelay((i + 1) * delayMult)
+                        .SetEase(Ease.OutBack);
 
-            // 총점 표시 (구분선)
-            TMP_Text divider = Instantiate(textPrefab, panel);
-            divider.text = "<color=#AAAAAA>---------------------</color>";
-            divider.fontSize = entryFontSize;
-            divider.alignment = TextAlignmentOptions.Center;
-            divider.rectTransform.anchoredPosition = new Vector2(0, currentY);
+                    // 투명도 애니메이션 (선택사항)
+                    CanvasGroup canvasGroup = item.GetComponent<CanvasGroup>();
+                    if (canvasGroup == null) canvasGroup = item.gameObject.AddComponent<CanvasGroup>();
+                    canvasGroup.alpha = 0;
+                    if (i == yakuScores.Count - 1) canvasGroup.DOFade(1, animationDuration).SetDelay((i + 1) * delayMult).onComplete = DisplayScores;
+                    else canvasGroup.DOFade(1, animationDuration).SetDelay((i + 1) * delayMult);
+                }
+            }
         }
 
+        public static void DisplayScores()
+        {
+            Debug.Log("Score");
+        }
     }
 }
 
