@@ -41,7 +41,7 @@ namespace MCRGame.UI
             totalScoreText.alpha = 0;
             winningHandDisplay.ShowWinningHand(scoreData);
             // 승자 정보
-            //winnerNicknameText.text = GameManager.Instance.Players[GameManager.Instance.seatToPlayerIndex[scoreData.winnerSeat]].Nickname;
+            winnerNicknameText.text = GameManager.Instance.Players[GameManager.Instance.seatToPlayerIndex[scoreData.winnerSeat]].Nickname;
             //characterImage.sprite = scoreData.characterSprite;
 
             // 확인 버튼 이벤트
