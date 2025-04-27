@@ -1,5 +1,6 @@
 using UnityEngine;
 using MCRGame.Common;
+using DG.Tweening;
 
 namespace MCRGame.UI
 {
@@ -20,42 +21,44 @@ namespace MCRGame.UI
 
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            
+
         }
 
         public void DeleteWinningPopup()
         {
             GameObject oldPopup = GameObject.Find("Score Popup");
-            if (oldPopup != null){
+            if (oldPopup != null)
+            {
                 Destroy(oldPopup);
                 oldPopup = null;
             }
         }
 
-        public void ShowWinningPopup(WinningScoreData data)
+        public Sequence ShowWinningPopup(WinningScoreData data)
         {
 
             if (winningScorePrefab == null)
             {
                 Debug.LogError("ScorePopupManager references not set!");
-                return;
+                return DOTween.Sequence();
             }
 
             GameObject oldPopup = GameObject.Find("Score Popup");
-            if (oldPopup != null){
+            if (oldPopup != null)
+            {
                 Destroy(oldPopup);
                 oldPopup = null;
             }
-            
+
             var popup = Instantiate(winningScorePrefab);
             popup.name = "Score Popup";
             if (!popup.TryGetComponent<WinningScorePopup>(out var popupComponent))
             {
                 Debug.LogError("WinningScorePopup component missing!");
-                return;
+                return DOTween.Sequence();
             }
-            
-            popupComponent.Initialize(data);
+
+            return popupComponent.Initialize(data);
         }
     }
 }

@@ -37,6 +37,14 @@ namespace MCRGame.Common
         {
             return $"({YakuId}, {Score})";
         }
+
+        public int CompareTo(YakuScore b)
+        {
+            if (YakuId == Yaku.FlowerPoint) return 1;
+            if (b.YakuId == Yaku.FlowerPoint) return -1;
+            if (Score == b.Score) return YakuId < b.YakuId ? 1 : -1;
+            return Score < b.Score ? 1 : -1;
+        }
     }
 
     public class YakuScoreConverter : JsonConverter<YakuScore>
