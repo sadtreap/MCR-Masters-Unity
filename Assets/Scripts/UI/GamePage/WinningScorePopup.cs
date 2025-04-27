@@ -41,7 +41,7 @@ namespace MCRGame.UI
             totalScoreText.alpha = 0;
             winningHandDisplay.ShowWinningHand(scoreData);
             // 승자 정보
-            //winnerNicknameText.text = GameManager.Instance.Players[GameManager.Instance.seatToPlayerIndex[scoreData.winnerSeat]].Nickname;
+            winnerNicknameText.text = GameManager.Instance.Players[GameManager.Instance.seatToPlayerIndex[scoreData.winnerSeat]].Nickname;
             //characterImage.sprite = scoreData.characterSprite;
 
             // 확인 버튼 이벤트
@@ -90,6 +90,7 @@ namespace MCRGame.UI
             float yakuHeight = 100f * yakuScale;
 
             // 각 야쿠 항목 애니메이션 추가
+            yakuScores.Sort((YakuScore a, YakuScore b) => { return a.CompareTo(b);});
             for (int i = 0; i < yakuScores.Count; i++)
             {
                 int index = i; // 클로저 캡처 방지
@@ -149,9 +150,10 @@ namespace MCRGame.UI
             totalScoreText.transform.localScale = Vector3.one * 1.5f;
             totalScoreText.text = $"{totalScore:N0}";
 
-            scoreSequence.AppendInterval(0.5f);
+            scoreSequence.AppendInterval(0.1f);
             scoreSequence.Append(totalScoreText.DOFade(1, 0.8f).SetEase(Ease.InQuint));
             scoreSequence.Join(totalScoreText.transform.DOScale(1f, 0.8f).SetEase(Ease.InQuint));
+            scoreSequence.AppendInterval(0.1f);
 
             Debug.Log("All scores displayed with animations");
         }
