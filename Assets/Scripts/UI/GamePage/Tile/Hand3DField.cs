@@ -307,23 +307,20 @@ namespace MCRGame.UI
             tsumoTile = null;
         }
 
-        public void MakeRealHand(GameTile? tsumoTileValue, List<GameTile> originalHandTiles)
+        public void MakeRealHand(GameTile winningTile, List<GameTile> originalHandTiles, bool isTsumo)
         {
-            // 기존 타일 모두 제거
             clear();
 
-            // originalHandTiles의 복사본 생성
             List<GameTile> tilesForRealHand = new List<GameTile>(originalHandTiles);
-            // tsumoTile과 동일한 타일 한 개를 제거하여 일반 핸드에서 제외
-            if (tsumoTileValue.HasValue && tilesForRealHand.Contains((GameTile)tsumoTileValue))
+            
+            if (tilesForRealHand.Contains((GameTile)winningTile))
             {
-                tilesForRealHand.Remove((GameTile)tsumoTileValue);
+                tilesForRealHand.Remove(winningTile);
             }
 
-            // 일반 핸드 타일 생성 (실제 타일 생성 메서드 사용)
             foreach (var tile in tilesForRealHand)
             {
-                GameObject tileObj = CreateRealTile(tile); // 기존 CreateRealTile 메서드 사용
+                GameObject tileObj = CreateRealTile(tile);
                 if (tileObj != null)
                 {
                     handTiles.Add(tileObj);
@@ -332,10 +329,10 @@ namespace MCRGame.UI
             // 일반 타일들 즉시 재배치 (애니메이션 없이)
             RepositionTiles();
 
-            if (tsumoTileValue.HasValue)
+            if (isTsumo)
             {
                 // 마지막에 tsumoTile 생성 및 추가
-                GameObject tsumoTileObj = CreateRealTile((GameTile)tsumoTileValue);
+                GameObject tsumoTileObj = CreateRealTile(winningTile);
                 if (tsumoTileObj != null)
                 {
                     handTiles.Add(tsumoTileObj);
