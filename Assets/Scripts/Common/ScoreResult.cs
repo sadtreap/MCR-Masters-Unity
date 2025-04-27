@@ -40,8 +40,10 @@ namespace MCRGame.Common
 
         public int CompareTo(YakuScore b)
         {
-            if (Score == b.Score) return YakuId > b.YakuId ? 1 : -1;
-            else return Score > b.Score ? 1 : -1;
+            if (YakuId == Yaku.FlowerPoint) return 1;
+            if (b.YakuId == Yaku.FlowerPoint) return -1;
+            if (Score == b.Score) return YakuId < b.YakuId ? 1 : -1;
+            return Score < b.Score ? 1 : -1;
         }
     }
 

@@ -31,32 +31,33 @@ namespace MCRGame.UI
 
         private Sequence yakuAnimationSequence;
 
-        public void Initialize(WinningScoreData scoreData)
+        public Sequence Initialize(WinningScoreData scoreData)
         {
             // [기존 Initialize 내용은 동일]
-            
+
             singleScoreText.text = $"{scoreData.singleScore:N0}";
             totalScoreText.text = $"{scoreData.totalScore:N0}";
             singleScoreText.alpha = 0;
             totalScoreText.alpha = 0;
             winningHandDisplay.ShowWinningHand(scoreData);
             // 승자 정보
-            winnerNicknameText.text = GameManager.Instance.Players[GameManager.Instance.seatToPlayerIndex[scoreData.winnerSeat]].Nickname;
+            //winnerNicknameText.text = GameManager.Instance.Players[GameManager.Instance.seatToPlayerIndex[scoreData.winnerSeat]].Nickname;
             //characterImage.sprite = scoreData.characterSprite;
 
             // 확인 버튼 이벤트
             okButton.onClick.RemoveAllListeners();
             okButton.onClick.AddListener(() => Destroy(gameObject)); // 팝업 닫기
-            // 야쿠 점수 표시 (애니메이션 완료 후 점수 표시)
-            DisplayYakuScoresWithAnimation(yakuOrigin.GetComponent<RectTransform>(), yakuObjectPrefab,
-                                        scoreData.yaku_score_list, () =>
-            {
-                DisplayScores(scoreData.singleScore, scoreData.totalScore);
-            });
+                                                                     // 야쿠 점수 표시 (애니메이션 완료 후 점수 표시)
+            return DisplayYakuScoresWithAnimation(
+                yakuOrigin.GetComponent<RectTransform>(),
+                yakuObjectPrefab,
+                scoreData.yaku_score_list,
+                () => DisplayScores(scoreData.singleScore, scoreData.totalScore) // Func<Sequence> 반환
+            );
         }
 
-        public void DisplayYakuScoresWithAnimation(RectTransform panel, GameObject yakuObjectPrefab,
-                                                List<YakuScore> yakuScores, System.Action onComplete)
+        public Sequence DisplayYakuScoresWithAnimation(RectTransform panel, GameObject yakuObjectPrefab,
+                                                List<YakuScore> yakuScores, Func<Sequence> onComplete)
         {
             // 기존 애니메이션 중지 및 정리
             if (yakuAnimationSequence != null && yakuAnimationSequence.IsActive())
@@ -72,7 +73,7 @@ namespace MCRGame.UI
             if (panel == null || yakuObjectPrefab == null)
             {
                 Debug.LogError("Panel or YakuItemPrefab is null!");
-                return;
+                return DOTween.Sequence();
             }
 
             yakuAnimationSequence = DOTween.Sequence();
@@ -90,7 +91,7 @@ namespace MCRGame.UI
             float yakuHeight = 100f * yakuScale;
 
             // 각 야쿠 항목 애니메이션 추가
-            yakuScores.Sort((YakuScore a, YakuScore b) => { return a.CompareTo(b);});
+            yakuScores.Sort((YakuScore a, YakuScore b) => { return a.CompareTo(b); });
             for (int i = 0; i < yakuScores.Count; i++)
             {
                 int index = i; // 클로저 캡처 방지
@@ -127,11 +128,13 @@ namespace MCRGame.UI
             // 모든 애니메이션 완료 후 콜백 실행
             yakuAnimationSequence.OnComplete(() =>
             {
-                onComplete?.Invoke();
+                Sequence scoreSequence = onComplete?.Invoke();
+                yakuAnimationSequence.Join(scoreSequence);
             });
+            return yakuAnimationSequence;
         }
 
-        private void DisplayScores(int singleScore, int totalScore)
+        private Sequence DisplayScores(int singleScore, int totalScore)
         {
             // 단일 점수와 총점 표시 (페이드인 + 스케일 애니메이션)
             Sequence scoreSequence = DOTween.Sequence();
@@ -156,6 +159,8 @@ namespace MCRGame.UI
             scoreSequence.AppendInterval(0.1f);
 
             Debug.Log("All scores displayed with animations");
+
+            return scoreSequence;
         }
 
         // [나머지 기존 메서드들은 동일하게 유지]

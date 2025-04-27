@@ -94,7 +94,7 @@ namespace MCRGame.Tester
                     new YakuScore { YakuId = Yaku.FourKongs, Score = 11 },
                     new YakuScore { YakuId = Yaku.AllPungs, Score = 22 },
                     new YakuScore { YakuId = Yaku.AllHonors, Score = 33 },
-                    new YakuScore { YakuId = Yaku.AllHonors, Score = 33 },
+                    new YakuScore { YakuId = Yaku.FlowerPoint, Score = 99 },
                     new YakuScore { YakuId = Yaku.AllHonors, Score = 33 },
                     new YakuScore { YakuId = Yaku.AllHonors, Score = 33 },
                     new YakuScore { YakuId = Yaku.AllHonors, Score = 33 },

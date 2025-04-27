@@ -13,6 +13,7 @@ using MCRGame.UI;
 using MCRGame.Net;
 using MCRGame.View;
 using MCRGame.Audio;
+using DG.Tweening;
 
 
 namespace MCRGame.Game
@@ -1893,8 +1894,8 @@ namespace MCRGame.Game
             Debug.Log("Canvas 비활성화 완료.");
             yield return StartCoroutine(cameraResultAnimator.PlayResultAnimation());
             yield return StartCoroutine(targetHandField.AnimateAllTilesRotationDomino(baseDuration: 0.4f, handScore: singleScore));
-            yield return new WaitForSeconds(5f);
-            ScorePopupManager.Instance.ShowWinningPopup(wsd);
+            yield return new WaitForSeconds(2f);
+            yield return ScorePopupManager.Instance.ShowWinningPopup(wsd).WaitForCompletion();
             Debug.Log("processed hu hand.");
             yield return new WaitForSeconds(5f);
             cameraResultAnimator.ResetCameraState();
