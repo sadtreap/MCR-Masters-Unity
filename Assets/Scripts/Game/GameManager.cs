@@ -1881,7 +1881,7 @@ namespace MCRGame.Game
             // (tsumoTile과 동일한 타일 한 개는 표시하지 않고, 마지막에 tsumoTile을 추가하여 extra gap이 적용되도록)
             Hand3DField targetHandField = playersHand3DFields[(int)RelativeSeatExtensions.CreateFromAbsoluteSeats(currentSeat: MySeat, targetSeat: winPlayerSeat)];
             targetHandField.clear();
-            targetHandField.MakeRealHand(tsumoTile, handTiles);
+            targetHandField.MakeRealHand(winningTile, handTiles, tsumoTile.HasValue);
             // "Main 2D Canvas" 이름의 GameObject 찾기
             GameObject canvas = GameObject.Find("Main 2D Canvas");
             if (canvas == null)
