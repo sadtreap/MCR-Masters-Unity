@@ -5435,6 +5435,7 @@ MonoBehaviour:
   pendingFlowerReplacement: []
   isActionUIActive: 0
   isAfterTsumoAction: 0
+  CanClick: 0
 --- !u!4 &1254287264
 Transform:
   m_ObjectHideFlags: 0
@@ -8672,7 +8673,6 @@ MonoBehaviour:
   tsumoFadeDuration: 0.05
   IsInitHandComplete: 0
   IsAnimating: 0
-  CanClick: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
