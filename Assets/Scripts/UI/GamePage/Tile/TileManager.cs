@@ -1,30 +1,33 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+using MCRGame.Common;
 using MCRGame.Game;
 
 namespace MCRGame.UI
 {
-    public class TileManager : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
+    public class TileManager : MonoBehaviour,
+        IPointerEnterHandler,
+        IPointerExitHandler,
+        IPointerClickHandler
     {
         private string tileName;
-        private Transform imageField;
         private RectTransform imageFieldRect;
         private Image imageComponent;
         private Vector2 originalPos;
-
         private GameHandManager gameHandManager;
 
-        private void Awake()
+        void Awake()
         {
-            // 부모에서 GameHandManager 찾아두기
             gameHandManager = GetComponentInParent<GameHandManager>();
 
-            imageField = transform.Find("ImageField");
+            var imageField = transform.Find("ImageField");
             if (imageField != null)
             {
                 imageFieldRect = imageField.GetComponent<RectTransform>();
                 imageComponent = imageField.GetComponent<Image>();
+                originalPos = imageFieldRect.anchoredPosition;
             }
         }
 
@@ -35,58 +38,79 @@ namespace MCRGame.UI
             UpdateSprite();
         }
 
-        // Hover 시작
+        // 더 이상 Update() 에서 Raycast 하지 않습니다.
+
         public void OnPointerEnter(PointerEventData eventData)
         {
-            // 애니메이션 중이거나 호버 불가 시 무시
-            if (gameHandManager == null || !gameHandManager.CanHover) return;
+            if (!gameHandManager.CanHover) return;
 
+            // 1) 비주얼 이펙트
             float moveUp = imageFieldRect.rect.height / 3f;
             imageFieldRect.anchoredPosition = originalPos + new Vector2(0, moveUp);
+
+            GameManager.Instance.NowHoverTile = null;
+            GameManager.Instance.NowHoverSource = null;
+            // 2) hover 상태 등록
+            if (GameTileExtensions.TryParseCustom(tileName, out var tile))
+            {
+                GameManager.Instance.NowHoverTile = tile;
+                GameManager.Instance.NowHoverSource = this;
+            }
         }
 
-        // Hover 끝
         public void OnPointerExit(PointerEventData eventData)
         {
-            if (gameHandManager == null || !gameHandManager.CanHover) return;
+            if (!gameHandManager.CanHover) return;
 
+            // 1) 비주얼 복원
             imageFieldRect.anchoredPosition = originalPos;
+
+            // 2) 자신이 마지막 등록된 hover source 였을 때만 해제
+            if (GameManager.Instance.NowHoverSource == this)
+            {
+                GameManager.Instance.NowHoverTile = null;
+                GameManager.Instance.NowHoverSource = null;
+            }
         }
 
-        public void ResetPosition()
-        {
-            imageFieldRect.anchoredPosition = originalPos;
-        }
-
-        // 클릭
         public void OnPointerClick(PointerEventData eventData)
         {
             if (eventData.button != PointerEventData.InputButton.Left) return;
             if (!GameManager.Instance.CanClick) return;
             GameManager.Instance.CanClick = false;
-            // 서버 검증 요청
             gameHandManager.RequestDiscard(this);
         }
 
         private void UpdateSprite()
         {
-            if (string.IsNullOrEmpty(tileName)) return;
-            var sprite = Tile2DManager.Instance?.get_sprite_by_name(tileName);
-            if (sprite != null && imageComponent != null)
+            if (string.IsNullOrEmpty(tileName) || imageComponent == null) return;
+            var spr = Tile2DManager.Instance.get_sprite_by_name(tileName);
+            if (spr != null)
             {
-                imageComponent.sprite = sprite;
+                imageComponent.sprite = spr;
                 imageComponent.color = Color.white;
             }
         }
+
         public void UpdateTransparent()
         {
-            imageComponent.color = new Color(1f, 1f, 1f, 0f);
+            if (imageComponent != null)
+                imageComponent.color = new Color(1f, 1f, 1f, 0f);
         }
 
-        private void Start()
+        public void ResetPosition()
         {
             if (imageFieldRect != null)
-                originalPos = imageFieldRect.anchoredPosition;
+                imageFieldRect.anchoredPosition = originalPos;
+        }
+
+        void OnDestroy()
+        {
+            if (GameManager.Instance.NowHoverSource == this)
+            {
+                GameManager.Instance.NowHoverTile = null;
+                GameManager.Instance.NowHoverSource = null;
+            }
         }
     }
 }

@@ -38,6 +38,9 @@ namespace MCRGame.Game
             if (GameManager.Instance == null){
                 return;
             }
+            if (GameManager.Instance.IsRightClickTsumogiri == false){
+                return;
+            }
             if (GameManager.Instance.isActionUIActive){
                 if (GameManager.Instance.isAfterTsumoAction)
                     GameManager.Instance.OnSkipButtonClickedAfterTsumo();
