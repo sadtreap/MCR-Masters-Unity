@@ -85,7 +85,7 @@ namespace MCRGame.Net
             }
 
             string url = $"{baseUrl}?user_id={Uri.EscapeDataString(uid)}" +
-                         $"&nickname={Uri.EscapeDataString(nick)}";
+                        $"&nickname={Uri.EscapeDataString(nick)}";
 
             // 2) NativeWebSocket 인스턴스 생성
             websocket = new WebSocket(url);

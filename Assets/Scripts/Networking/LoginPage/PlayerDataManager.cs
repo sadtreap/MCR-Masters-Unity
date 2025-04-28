@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace MCRGame.Net
@@ -14,6 +15,11 @@ namespace MCRGame.Net
         public string Uid { get; private set; } // 고유 사용자 ID (문자열)
         public string Nickname { get; private set; }
         public string Email { get; private set; }
+
+        // 유저가 보유한 캐릭터 종류 리스트
+        public List<string> OwnedCharacters { get; private set; } = new List<string>();
+        // 현재 설정된(선택된) 캐릭터
+        public string CurrentCharacter { get; private set; }
 
         private void Awake()
         {
@@ -46,6 +52,27 @@ namespace MCRGame.Net
             Nickname = nickname;
             Email = email;
             Debug.Log($"[PlayerDataManager] 유저 정보 저장: {Nickname}, {Email}");
+        }
+
+        /// <summary>
+        /// 유저의 보유 캐릭터 목록과 현재 선택 캐릭터를 설정
+        /// </summary>
+        public void SetCharacterData(List<string> owned, string current)
+        {
+            OwnedCharacters = new List<string>(owned);
+            CurrentCharacter = current;
+            Debug.Log($"[PlayerDataManager] 보유 캐릭터: {string.Join(", ", OwnedCharacters)}");
+            Debug.Log($"[PlayerDataManager] 현재 캐릭터: {CurrentCharacter}");
+        }
+
+        public void SetCurrentCharacter(string toChange)
+        {
+            if (CurrentCharacter == toChange) return;
+            if (!OwnedCharacters.Contains(toChange)) {
+                Debug.Log("no such character");
+                return;
+            }
+            CurrentCharacter = toChange;
         }
     }
 }
