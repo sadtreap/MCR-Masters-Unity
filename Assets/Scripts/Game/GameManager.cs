@@ -70,11 +70,11 @@ namespace MCRGame.Game
 
         [Header("Score Colors")]
         [Tooltip("양의 점수일 때 텍스트 색상")]
-        [SerializeField] private Color positiveScoreColor = new Color(0f, 0.0941f, 0.7373f); // #0018CB
+        [SerializeField] private Color positiveScoreColor = new Color(0x5F / 255f, 0xD8 / 255f, 0xA2 / 255f); // #5FD8A2
         [Tooltip("0점일 때 텍스트 색상")]
-        [SerializeField] private Color zeroScoreColor = Color.white;                  // #FFFFFF
+        [SerializeField] private Color zeroScoreColor = new Color(0xB0 / 255f, 0xB0 / 255f, 0xB0 / 255f); // #B0B0B0
         [Tooltip("음의 점수일 때 텍스트 색상")]
-        [SerializeField] private Color negativeScoreColor = new Color(0.7804f, 0.7569f, 0.3186f); // #C7C151
+        [SerializeField] private Color negativeScoreColor = new Color(0xE2 / 255f, 0x78 / 255f, 0x78 / 255f); // #E27878
 
         public Color PositiveScoreColor => positiveScoreColor;
         public Color ZeroScoreColor => zeroScoreColor;
