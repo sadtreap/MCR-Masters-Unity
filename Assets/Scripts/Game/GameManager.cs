@@ -148,8 +148,18 @@ namespace MCRGame.Game
         public bool isActionUIActive = false;
 
         public bool isAfterTsumoAction = false;
-        
+
         public bool CanClick = false;
+
+        public GameTile? NowHoverTile = null;
+
+        public TileManager NowHoverSource;
+
+        public Dictionary<GameTile, List<TenpaiAssistEntry>> tenpaiAssistDict
+    = new Dictionary<GameTile, List<TenpaiAssistEntry>>();
+
+        public List<TenpaiAssistEntry> NowTenpaiAssistList
+        = new List<TenpaiAssistEntry>();
         public void UpdateCurrentTurnEffect()
         {
             int currentIndex = (int)currentTurnSeat;
@@ -238,6 +248,8 @@ namespace MCRGame.Game
         {
             UpdateTimerText();
         }
+
+
 
 
         /// <summary>
@@ -381,6 +393,15 @@ namespace MCRGame.Game
 
                 if (relativeSeat == RelativeSeat.SELF)
                 {
+                    if (callBlockData.Type == CallBlockType.CHII || callBlockData.Type == CallBlockType.PUNG)
+                    {
+                        tenpaiAssistDict.Clear();
+                        if (jData.TryGetValue("tenpai_assist", out JToken assistToken)
+                            && assistToken.Type == JTokenType.Object)
+                        {
+                            tenpaiAssistDict = BuildTenpaiAssistDict((JObject)assistToken);
+                        }
+                    }
                     Debug.Log("ConfirmCallBlock: Applying call for SELF.");
                     gameHandManager.ApplyCall(cbData: callBlockData);
                 }
@@ -517,10 +538,25 @@ namespace MCRGame.Game
             Debug.Log($"[GameManager.ConfirmDiscard] discard tile successfully");
             ClearActionUI();
             GameTile discardTile = (GameTile)data["tile"].ToObject<int>();
+
+
+
             AbsoluteSeat discardedSeat = (AbsoluteSeat)data["seat"].ToObject<int>();
             bool is_tsumogiri = data["is_tsumogiri"].ToObject<bool>();
             if (discardedSeat == MySeat)
             {
+                if (tenpaiAssistDict != null
+                && tenpaiAssistDict.TryGetValue(discardTile, out var list)
+                && list != null
+                && list.Count > 0)
+                {
+                    NowTenpaiAssistList = new List<TenpaiAssistEntry>(list);
+                }
+                else
+                {
+                    NowTenpaiAssistList = new List<TenpaiAssistEntry>();
+                }
+                tenpaiAssistDict.Clear();
                 gameHandManager.ConfirmDiscard(tile: discardTile);
             }
             else
@@ -779,7 +815,54 @@ namespace MCRGame.Game
                 }
             }
 
+            tenpaiAssistDict.Clear();
+            if (data.TryGetValue("tenpai_assist", out JToken assistToken)
+                && assistToken.Type == JTokenType.Object)
+            {
+                tenpaiAssistDict = BuildTenpaiAssistDict((JObject)assistToken);
+            }
+
             moveTurn(RelativeSeat.SELF);
+        }
+
+        private Dictionary<GameTile, List<TenpaiAssistEntry>>
+            BuildTenpaiAssistDict(JObject outer)
+        {
+            var dict = new Dictionary<GameTile, List<TenpaiAssistEntry>>();
+
+            foreach (var discardProp in outer.Properties())
+            {
+                GameTile discardTile = (GameTile)int.Parse(discardProp.Name);
+                var inner = (JObject)discardProp.Value;
+                var entryList = new List<TenpaiAssistEntry>();
+
+                foreach (var tenpaiProp in inner.Properties())
+                {
+                    GameTile tenpaiTile = (GameTile)int.Parse(tenpaiProp.Name);
+                    var pairArray = (JArray)tenpaiProp.Value;
+
+                    // JSON → ScoreResult 로 자동 변환
+                    var tsumoResult = pairArray[0].ToObject<ScoreResult>();
+                    var discardResult = pairArray[1].ToObject<ScoreResult>();
+
+                    entryList.Add(new TenpaiAssistEntry
+                    {
+                        TenpaiTile = tenpaiTile,
+                        TsumoResult = tsumoResult,
+                        DiscardResult = discardResult
+                    });
+
+                    // (선택) 디버그 로그
+                    Debug.Log(
+                        $"[버림 {discardTile}] 텐파이 {tenpaiTile} → " +
+                        $"TSUMO: {tsumoResult} | DISCARD: {discardResult}"
+                    );
+                }
+
+                dict[discardTile] = entryList;
+            }
+
+            return dict;
         }
 
         private Sprite GetSpriteForAction(GameActionType type)
@@ -824,6 +907,12 @@ namespace MCRGame.Game
 
         private void ShowAdditionalActionChoices(GameActionType type, List<GameAction> choices)
         {
+            if (additionalChoicesContainer != null)
+            {
+                Destroy(additionalChoicesContainer);
+                additionalChoicesContainer = null;
+            }
+
             // actionButtonPanel.gameObject.SetActive(false);
             choices.Sort((a, b) => ((int)a.Tile).CompareTo((int)b.Tile));
 
@@ -991,6 +1080,7 @@ namespace MCRGame.Game
                 additionalChoicesContainer = null;
             }
         }
+
         private void ClearActionUI()
         {
             isAfterTsumoAction = false;
@@ -1122,6 +1212,10 @@ namespace MCRGame.Game
             isActionUIActive = false;
             isAfterTsumoAction = false;
             CanClick = false;
+            NowHoverTile = null;
+            NowHoverSource = null;
+            tenpaiAssistDict.Clear();
+            NowTenpaiAssistList.Clear();
             SetUIActive(true);
             ClearActionUI();
             discardManager.InitRound();
