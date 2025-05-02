@@ -7,7 +7,8 @@ namespace MCRGame.Net
     [JsonConverter(typeof(StringEnumConverter))]
     public enum GameWSActionType
     {
-        
+        [EnumMember(Value = "client_game_start_info")]
+        CLIENT_GAME_START_INFO,
         [EnumMember(Value = "game_event")]
         GAME_EVENT,
         [EnumMember(Value = "return_action")]

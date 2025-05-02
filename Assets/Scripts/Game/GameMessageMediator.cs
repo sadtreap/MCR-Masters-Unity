@@ -78,6 +78,19 @@ namespace MCRGame.Game
         {
             switch (message.Event)
             {
+                case GameWSActionType.CLIENT_GAME_START_INFO:
+                    Debug.Log("[GameMessageMediator] CLIENT_GAME_START_INFO event received.");
+                    if (message.Data.TryGetValue("players", out JToken playersToken))
+                    {
+                        var players = playersToken.ToObject<List<RoomUserInfo>>();
+                        GameManager.Instance.PlayerInfo = players;
+                        Debug.Log("[GameMessageMediator] PlayerInfo set via CLIENT_GAME_START_INFO.");
+                    }
+                    else
+                    {
+                        Debug.LogWarning("[GameMessageMediator] CLIENT_GAME_START_INFO: 'players' 키가 없습니다.");
+                    }
+                    break;
                 case GameWSActionType.INIT_EVENT:
                     Debug.Log("[GameMessageMediator] Init event received.");
 
@@ -186,7 +199,7 @@ namespace MCRGame.Game
                     GameManager.Instance.IsFlowerConfirming = true;
                     StartCoroutine(GameManager.Instance.ConfirmFlower(message.Data));
                     break;
-                
+
                 case GameWSActionType.PON:
                 case GameWSActionType.CHII:
                 case GameWSActionType.DAIMIN_KAN:
