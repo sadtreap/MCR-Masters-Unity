@@ -25,7 +25,7 @@ namespace MCRGame.Net
         private IEnumerator ToggleAllCharacters()
         {
             List<string> characters = new List<string> {"c1", "c2", "c3"};
-            //foreach (string n in characters) yield return ToggleCharacter(n);
+            foreach (string n in characters) yield return ToggleCharacter(n);
             yield return GetUserInfoFromServer();
         }
 
