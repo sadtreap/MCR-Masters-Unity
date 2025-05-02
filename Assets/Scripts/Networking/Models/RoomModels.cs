@@ -29,6 +29,7 @@ namespace MCRGame.Net
         [JsonProperty("user_uid")] public string uid;
         [JsonProperty("is_ready")] public bool is_ready;
         [JsonProperty("slot_index")] public int slot_index;
+        [JsonProperty("current_character")] public CharacterResponse current_character;
     }
 
     [Serializable]
@@ -36,5 +37,6 @@ namespace MCRGame.Net
     {
         [JsonProperty("host_uid")] public string host_uid;
         [JsonProperty("users")] public RoomUserInfo[] users;
+        
     }
 }

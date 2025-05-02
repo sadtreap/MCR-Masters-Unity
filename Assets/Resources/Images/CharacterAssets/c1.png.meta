@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 655fdd2e92f314b22a59da3e142a5895
+guid: 1f9e43294eef4c7439e1fbc3c72980f2
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -3895198062352297626
-    second: c1nbg_0
+      213: -6635675242781734339
+    second: rv-3_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -96,32 +96,6 @@ TextureImporter:
     ignorePlatformSupport: 0
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
-  - serializedVersion: 4
-    buildTarget: WebGL
-    maxTextureSize: 2048
-    resizeAlgorithm: 0
-    textureFormat: -1
-    textureCompression: 1
-    compressionQuality: 50
-    crunchedCompression: 0
-    allowsAlphaSplitting: 0
-    overridden: 0
-    ignorePlatformSupport: 0
-    androidETC2FallbackOverride: 0
-    forceMaximumCompressionQuality_BC6H_BC7: 0
-  - serializedVersion: 4
-    buildTarget: iOS
-    maxTextureSize: 2048
-    resizeAlgorithm: 0
-    textureFormat: -1
-    textureCompression: 1
-    compressionQuality: 50
-    crunchedCompression: 0
-    allowsAlphaSplitting: 0
-    overridden: 0
-    ignorePlatformSupport: 0
-    androidETC2FallbackOverride: 0
-    forceMaximumCompressionQuality_BC6H_BC7: 0
   spriteSheet:
     serializedVersion: 2
     sprites:
@@ -129,10 +103,10 @@ TextureImporter:
       name: c1
       rect:
         serializedVersion: 2
-        x: 9
-        y: 12
-        width: 404
-        height: 463
+        x: 212
+        y: 61
+        width: 2423
+        height: 4047
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -141,8 +115,30 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 66193bbfff971f9c0800000000000000
-      internalID: -3895198062352297626
+      spriteID: d3a0425268859e3a0800000000000000
+      internalID: -6635675242781734339
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: c1p
+      rect:
+        serializedVersion: 2
+        x: 1058
+        y: 3165
+        width: 750
+        height: 750
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e070207a4d55cda4abfa96b45e59a0d4
+      internalID: -1073718363
       vertices: []
       indices: 
       edges: []
@@ -151,7 +147,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 6094bf22e6391a74bacc1788ed81a126
+    spriteID: 9ac8db59c9db5d94ba2a1b123726ff49
     internalID: 0
     vertices: []
     indices: 
@@ -161,7 +157,8 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      c1: -3895198062352297626
+      c1: -6635675242781734339
+      c1p: -1073718363
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

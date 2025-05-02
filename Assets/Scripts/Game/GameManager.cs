@@ -23,6 +23,7 @@ namespace MCRGame.Game
         public static GameManager Instance { get; private set; }
         // 게임 관련 데이터
         public List<Player> Players { get; private set; }
+        public List<RoomUserInfo> PlayerInfo { get; set; }
         public AbsoluteSeat MySeat { get; private set; }
         public RelativeSeat CurrentTurnSeat { get; private set; }
         public Round CurrentRound { get; private set; }
@@ -1362,6 +1363,11 @@ namespace MCRGame.Game
 
         private Sprite GetProfileImageSprite(string uid)
         {
+            foreach(var p in PlayerInfo)
+            {
+                if (p.uid == uid) return CharacterImageManager.Instance.get_character_sprite_by_code(p.current_character.code);
+            }
+            Debug.LogError("[GetProfileImageSprite] couldnt find uid");
             return defaultProfileImageSprite;
         }
 
@@ -1429,7 +1435,7 @@ namespace MCRGame.Game
             // ➍ 내 절대 좌석 & 현재 턴 좌석
             MySeat = playerIndexToSeat[playerUidToIndex[PlayerDataManager.Instance.Uid]];
             CurrentTurnSeat = RelativeSeatExtensions.CreateFromAbsoluteSeats(
-                                  currentSeat: MySeat, targetSeat: AbsoluteSeat.EAST);
+                            currentSeat: MySeat, targetSeat: AbsoluteSeat.EAST);
         }
 
 

@@ -19,7 +19,22 @@ namespace MCRGame.Net
         private void Start()
         {
             // 로비씬에 들어오면 유저 정보를 요청
-            StartCoroutine(GetUserInfoFromServer());
+            StartCoroutine(ToggleAllCharacters());
+        }
+
+        private IEnumerator ToggleAllCharacters()
+        {
+            List<string> characters = new List<string> {"c1", "c2", "c3"};
+            foreach (string n in characters) yield return ToggleCharacter(n);
+            yield return GetUserInfoFromServer();
+        }
+
+        private IEnumerator ToggleCharacter(string code)
+        {
+            var req = new UnityWebRequest(CoreServerConfig.GetHttpUrl("/user/me/character/" + code), "POST");
+            string token = PlayerDataManager.Instance.AccessToken;
+            req.SetRequestHeader("Authorization", $"Bearer {token}");
+            yield return req.SendWebRequest();
         }
 
         private IEnumerator GetUserInfoFromServer()
@@ -49,11 +64,11 @@ namespace MCRGame.Net
                     // PlayerDataManager에 저장
                     PlayerDataManager.Instance.SetUserData(userData.uid, userData.nickname, userData.email);
 
-                    PlayerDataManager.Instance.SetCharacterData(new List<string> {"default", "c1", "c4", "c5"}, "default");
+                    PlayerDataManager.Instance.SetCharacterData(userData.owned_characters, userData.current_character.code);
                     
-                    CharacterImage.GetComponent<Image>().sprite = CharacterImageManager.Instance.get_character_sprite_by_name(PlayerDataManager.Instance.CurrentCharacter);
+                    CharacterImage.GetComponent<Image>().sprite = CharacterImageManager.Instance.get_character_sprite_by_code(PlayerDataManager.Instance.CurrentCharacter);
                     CharacterImage.GetComponent<Image>().color = new Color(255, 255, 255, 255);
-                    ProfileImage.GetComponent<Image>().sprite = CharacterImageManager.Instance.get_character_pfp_by_name(PlayerDataManager.Instance.CurrentCharacter);
+                    ProfileImage.GetComponent<Image>().sprite = CharacterImageManager.Instance.get_character_pfp_by_code(PlayerDataManager.Instance.CurrentCharacter);
                     ProfileImage.GetComponent<Image>().color = new Color(255, 255, 255, 255);
                     // UI에 닉네임 표시
                     nicknameText.text = userData.nickname;

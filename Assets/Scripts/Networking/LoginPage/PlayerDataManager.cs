@@ -17,7 +17,7 @@ namespace MCRGame.Net
         public string Email { get; private set; }
 
         // 유저가 보유한 캐릭터 종류 리스트
-        public List<string> OwnedCharacters { get; private set; } = new List<string>();
+        public List<CharacterResponse> OwnedCharacters { get; private set; } = new List<CharacterResponse>();
         // 현재 설정된(선택된) 캐릭터
         public string CurrentCharacter { get; private set; }
 
@@ -57,18 +57,25 @@ namespace MCRGame.Net
         /// <summary>
         /// 유저의 보유 캐릭터 목록과 현재 선택 캐릭터를 설정
         /// </summary>
-        public void SetCharacterData(List<string> owned, string current)
+        public void SetCharacterData(List<CharacterResponse> owned, string current)
         {
-            OwnedCharacters = new List<string>(owned);
+            OwnedCharacters = owned;
             CurrentCharacter = current;
-            Debug.Log($"[PlayerDataManager] 보유 캐릭터: {string.Join(", ", OwnedCharacters)}");
+            Debug.Log($"[PlayerDataManager] 보유 캐릭터: {OwnedCharacters}");
             Debug.Log($"[PlayerDataManager] 현재 캐릭터: {CurrentCharacter}");
         }
 
         public void SetCurrentCharacter(string toChange)
         {
             if (CurrentCharacter == toChange) return;
-            if (!OwnedCharacters.Contains(toChange)) {
+            bool flag = false;
+            foreach (var c in OwnedCharacters){
+                if (c.code == toChange){
+                    flag = true;
+                    break;
+                }
+            }
+            if (!flag) {
                 Debug.Log("no such character");
                 return;
             }

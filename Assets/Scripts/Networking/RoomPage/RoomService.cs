@@ -9,6 +9,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Linq;
 using MCRGame.Common;
+using MCRGame.Game;
 
 
 namespace MCRGame.Net
@@ -243,8 +244,8 @@ namespace MCRGame.Net
                 downloadHandler = new DownloadHandlerBuffer()
             };
             req.SetRequestHeader("Authorization", $"Bearer {PlayerDataManager.Instance.AccessToken}");
+            GameManager.Instance.PlayerInfo = Players;
             yield return req.SendWebRequest();
-
             if (req.result == UnityWebRequest.Result.Success)
                 Debug.Log("[RoomService] GameStarted");
             else

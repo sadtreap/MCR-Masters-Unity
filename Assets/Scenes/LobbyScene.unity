@@ -2324,8 +2324,8 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 12800000, guid: 70beb34698f8cf549bcfe6d9e16fedaa, type: 3}
-    m_FontSize: 30
+    m_Font: {fileID: 12800000, guid: 81cd0e1491486db4c9ab737e9ede3708, type: 3}
+    m_FontSize: 16
     m_FontStyle: 0
     m_BestFit: 0
     m_MinSize: 0
@@ -3088,14 +3088,14 @@ MonoBehaviour:
       - m_Target: {fileID: 1549012690}
         m_TargetAssemblyTypeName: MCRGame.UI.CharacterChange, Assembly-CSharp
         m_MethodName: RevealCharacterPanel
-        m_Mode: 1
+        m_Mode: 6
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
           m_IntArgument: 0
           m_FloatArgument: 0
           m_StringArgument: 
-          m_BoolArgument: 0
+          m_BoolArgument: 1
         m_CallState: 2
 --- !u!1 &1613031327
 GameObject:
@@ -4115,13 +4115,13 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 2122054928}
   m_TextComponent: {fileID: 675333134}
   m_Placeholder: {fileID: 1009607170}
-  m_ContentType: 5
+  m_ContentType: 0
   m_InputType: 0
   m_AsteriskChar: 42
-  m_KeyboardType: 6
+  m_KeyboardType: 0
   m_LineType: 0
   m_HideMobileInput: 0
-  m_CharacterValidation: 4
+  m_CharacterValidation: 0
   m_CharacterLimit: 0
   m_OnSubmit:
     m_PersistentCalls:

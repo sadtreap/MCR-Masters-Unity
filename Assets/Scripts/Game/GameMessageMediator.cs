@@ -138,7 +138,7 @@ namespace MCRGame.Game
                     {
                         finalScores = finalScoreToken.ToObject<List<int>>();
                         Debug.Log("[GameMessageMediator] Final scores: "
-                                  + string.Join(", ", finalScores));
+                                + string.Join(", ", finalScores));
 
                         // 점수 갱신 (순위 팝업이나 UI용)
                         GameManager.Instance.UpdatePlayerScores(finalScores);

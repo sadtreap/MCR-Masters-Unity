@@ -41,8 +41,16 @@ namespace MCRGame.UI
             totalScoreText.alpha = 0;
             winningHandDisplay.ShowWinningHand(scoreData);
             // 승자 정보
-            winnerNicknameText.text = GameManager.Instance.Players[GameManager.Instance.seatToPlayerIndex[scoreData.winnerSeat]].Nickname;
-            //characterImage.sprite = scoreData.characterSprite;
+            string nick = GameManager.Instance.Players[GameManager.Instance.seatToPlayerIndex[scoreData.winnerSeat]].Nickname;
+            winnerNicknameText.text = nick;
+
+            foreach(var p in GameManager.Instance.PlayerInfo){
+                if (p.nickname == nick){
+                    characterImage.sprite =  CharacterImageManager.Instance.get_character_sprite_by_code(p.current_character.code);
+                    characterImage.color = new Color(255, 255, 255, 255);
+                    break;
+                }
+            }
 
             // 확인 버튼 이벤트
             okButton.onClick.RemoveAllListeners();

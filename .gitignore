@@ -1016,3 +1016,8 @@ sysinfo.txt
 # Additional files built by Visual Studio
 
 # End of https://www.toptal.com/developers/gitignore/api/unity,python,pycharm+all,csharp,c++,web,visualstudio,visualstudiocode,macos,linux
+Assets/Fonts/Pretendard-1.3.9/web/static/pretendard-subset.css.meta
+Assets/Fonts/Pretendard-1.3.9/web/static/pretendard.css.meta
+Assets/Fonts/Pretendard-1.3.9/web/variable/pretendardvariable.css.meta
+Assets/WebGLTemplates/16by9Dynamic/index.html.meta
+Assets/WebGLTemplates/MyCustomTemplate/index.html.meta

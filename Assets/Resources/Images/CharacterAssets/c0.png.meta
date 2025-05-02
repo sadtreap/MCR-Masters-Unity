@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: df77f8b2d89854887a9db00039fc5d51
+guid: e83be119639eed043ba4af1443225db9
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -8748568369090282380
-    second: Adobe Express - file (33)_0
+      213: 4229216853955584727
+    second: rv-1_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -97,6 +97,19 @@ TextureImporter:
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
   - serializedVersion: 4
+    buildTarget: Android
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
     buildTarget: WebGL
     maxTextureSize: 2048
     resizeAlgorithm: 0
@@ -126,23 +139,45 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Adobe Express - file (33)_0
+      name: default
       rect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 260
-        height: 260
+        x: 311
+        y: 213
+        width: 1333
+        height: 3776
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 47cb7239b67d69680800000000000000
-      internalID: -8748568369090282380
+      spriteID: 7d22e12425231ba30800000000000000
+      internalID: 4229216853955584727
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: c6_half
+      rect:
+        serializedVersion: 2
+        x: 311
+        y: 2293
+        width: 1327
+        height: 1693
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d553f1912ea3dfd43aad16a4813a2f20
+      internalID: -734943724
       vertices: []
       indices: 
       edges: []
@@ -151,7 +186,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 5e97eb03825dee720800000000000000
+    spriteID: 68376005ad9f4c443b4477b7922ce3ca
     internalID: 0
     vertices: []
     indices: 
@@ -161,7 +196,8 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Adobe Express - file (33)_0: -8748568369090282380
+      c6_half: -734943724
+      default: 4229216853955584727
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
