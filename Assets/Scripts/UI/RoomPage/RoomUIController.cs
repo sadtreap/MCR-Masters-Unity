@@ -60,9 +60,6 @@ namespace MCRGame.UI
             {
                 var go = Instantiate(playerSlotPrefab, playersParent);
                 var slotUI = go.GetComponent<PlayerSlotUI>();
-                var playerImg = go.transform.Find("PlayerImage").GetComponent<Image>();
-                playerImg.sprite = CharacterImageManager.Instance.get_character_sprite_by_name(PlayerDataManager.Instance.CurrentCharacter);
-                playerImg.color = new Color(255, 255, 255, 255);
                 // 이 인덱스에 해당하는 유저 찾기
                 var user = users.FirstOrDefault(u => u.slot_index == slotIndex);
                 if (user != null)

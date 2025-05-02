@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace MCRGame.Net
 {
     [System.Serializable]
@@ -16,7 +18,7 @@ namespace MCRGame.Net
         public string token_type;
     }
 
-        /// <summary>
+    /// <summary>
     /// 서버에서 /api/v1/user/me 응답으로 내려주는 JSON 모델
     /// {"uid":"string","nickname":"string","email":"string"}
     /// </summary>
@@ -26,6 +28,14 @@ namespace MCRGame.Net
         public string uid;
         public string nickname;
         public string email;
+        public CharacterResponse current_character;
+        public List<CharacterResponse> owned_characters;
     }
 
+    [System.Serializable]
+    public class CharacterResponse
+    {
+        public string code;
+        public string name;
+    }
 }
