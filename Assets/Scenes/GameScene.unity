@@ -5690,15 +5690,21 @@ MonoBehaviour:
   m_GameObject: {fileID: 1254287262}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d950a13ac6cc91b41a01e27e4952d312, type: 3}
+  m_Script: {fileID: 11500000, guid: 748ad97e61cf72d49834ee6cd6c283bc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   gameHandManager: {fileID: 7865758812266599383}
-  IsFlowerConfirming: 0
   discardManager: {fileID: 1753036464}
+  IsFlowerConfirming: 0
   IsRightClickTsumogiri: 0
-  leftTilesText: {fileID: 84894199}
-  currentRoundText: {fileID: 2007157735}
+  isGameStarted: 0
+  IsMyTurn: 0
+  isInitHandDone: 0
+  isActionUIActive: 0
+  isAfterTsumoAction: 0
+  CanClick: 0
+  NowHoverSource: {fileID: 0}
+  pendingFlowerReplacement: []
   playersHand3DFields:
   - {fileID: 747411122}
   - {fileID: 665667696}
@@ -5709,6 +5715,8 @@ MonoBehaviour:
   - {fileID: 723865923}
   - {fileID: 1945982675}
   - {fileID: 417597796}
+  leftTilesText: {fileID: 84894199}
+  currentRoundText: {fileID: 2007157735}
   cameraResultAnimator: {fileID: 1800113856}
   scoreText_Self: {fileID: 999382808}
   scoreText_Shimo: {fileID: 763404407}
@@ -5721,8 +5729,8 @@ MonoBehaviour:
   windText_Shimo: {fileID: 1133627711}
   windText_Toi: {fileID: 332949164}
   windText_Kami: {fileID: 697085768}
-  eastWindColor: {r: 0, g: 0.8784314, b: 1, a: 1}
-  otherWindColor: {r: 0.53333336, g: 0.53333336, b: 0.53333336, a: 1}
+  eastWindColor: {r: 0.8584906, g: 0.85631377, b: 0.58717513, a: 1}
+  otherWindColor: {r: 0.8867924, g: 0.8867924, b: 0.8867924, a: 1}
   profileImages:
   - {fileID: 480624414}
   - {fileID: 214823568}
@@ -5759,7 +5767,7 @@ MonoBehaviour:
   flowerPhaseEffectPrefab: {fileID: 988111730318827120, guid: 4a38a319ff01e5a48b2b136cfd541d22, type: 3}
   roundStartEffectPrefab: {fileID: 7131176115911774369, guid: a16a8301208e4ff49aed228813b7869c, type: 3}
   defaultFrameSprite: {fileID: 21300000, guid: fe3b4f528d464b24db501451562d3523, type: 3}
-  defaultProfileImageSprite: {fileID: 7133547932232919440, guid: 8f7ac08d74964644bbac6a270868e5c2, type: 3}
+  defaultProfileImageSprite: {fileID: 21300000, guid: 8f7ac08d74964644bbac6a270868e5c2, type: 3}
   actionButtonPanel: {fileID: 1746021028}
   actionButtonPrefab: {fileID: 8209973736230947900, guid: a8c7dfbd12ef909429ee90d67826c85b, type: 3}
   skipButtonSprite: {fileID: 7510497192285408470, guid: 1b13f3da62c1a4f4fb55537b1677a570, type: 3}
@@ -5770,15 +5778,7 @@ MonoBehaviour:
   flowerButtonSprite: {fileID: 3227129927260279833, guid: 215e0120c1bce4f9d8f00dacce484176, type: 3}
   backButtonPrefab: {fileID: 1298826684696180946, guid: ffef94d0d53f8fa4a9b5b062d402b7d7, type: 3}
   timerText: {fileID: 2123852928}
-  IsMyTurn: 0
-  currentTurnSeat: 0
   EndScorePopupPrefab: {fileID: 3268360009849111226, guid: e5f504f812f6b3144bc20233a92543c4, type: 3}
-  isInitHandDone: 0
-  pendingFlowerReplacement: []
-  isActionUIActive: 0
-  isAfterTsumoAction: 0
-  CanClick: 0
-  NowHoverSource: {fileID: 0}
 --- !u!4 &1254287264
 Transform:
   m_ObjectHideFlags: 0
@@ -5958,6 +5958,8 @@ GameObject:
   - component: {fileID: 1299348023}
   - component: {fileID: 1299348022}
   - component: {fileID: 1299348021}
+  - component: {fileID: 1299348026}
+  - component: {fileID: 1299348025}
   m_Layer: 0
   m_Name: GameEventDispatcher
   m_TagString: Untagged
@@ -6038,6 +6040,30 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c2ff4d4ff0b9de0429b473cd17d2c3d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &1299348025
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1299348017}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 24fd5058b96f6fa45a495f34f3b48e03, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &1299348026
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1299348017}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 99c8c4cb10deec74cbe8444be434c7ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!1 &1300039710
@@ -7040,7 +7066,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0}
   m_AnchorMax: {x: 0.5, y: 1}
-  m_AnchoredPosition: {x: 0, y: -7.0147095}
+  m_AnchoredPosition: {x: 0, y: -7.0146484}
   m_SizeDelta: {x: 1026.9094, y: -314.03}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1712221587
