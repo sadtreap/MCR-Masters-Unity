@@ -425,6 +425,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   popupContainer: {fileID: 669159822165252825}
   playerEntryPrefab: {fileID: 62454918787604757, guid: 94f06d47126fda84cb9328b9d6aaad66, type: 3}
+  CharacterImage: {fileID: 7584174759774940556}
   moveDuration: 0.5
   moveCurve:
     serializedVersion: 2
