@@ -3,17 +3,52 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Linq;
+
 using MCRGame.Net;
 using MCRGame.Common;
-using System.Linq;
+using MCRGame.Game.Events;   // ★ Dispatcher 네임스페이스
 
 namespace MCRGame.Game
 {
+    /// <summary>
+    /// WebSocket → 메인 쓰레드 전달용 큐 + 비‑게임플레이(로비/점수) 메시지 처리.
+    /// 실제 게임플레이 메시지는 GameEventDispatcher 로 넘긴다.
+    /// </summary>
     public class GameMessageMediator : MonoBehaviour
     {
         public static GameMessageMediator Instance { get; private set; }
-        // WebSocket에서 수신한 메시지를 저장할 큐
-        private Queue<GameWSMessage> messageQueue = new Queue<GameWSMessage>();
+
+        /*──────────────────────────────────────────────*/
+        /*  Fields                                      */
+        /*──────────────────────────────────────────────*/
+
+        private readonly Queue<GameWSMessage> _messageQueue = new();
+        private GameEventDispatcher _dispatcher;
+
+        /// <summary>
+        /// Dispatcher 로 넘길 WS ActionType 집합 (실제 플레이 이벤트).
+        /// </summary>
+        private static readonly HashSet<GameWSActionType> GameplayEvents = new()
+        {
+            GameWSActionType.PON,
+            GameWSActionType.CHII,
+            GameWSActionType.DAIMIN_KAN,
+            GameWSActionType.SHOMIN_KAN,
+            GameWSActionType.AN_KAN,
+            GameWSActionType.DISCARD,
+            GameWSActionType.DISCARD_ACTIONS,
+            GameWSActionType.ROBBING_KONG_ACTIONS,
+            GameWSActionType.FLOWER,
+            GameWSActionType.TSUMO,
+            GameWSActionType.TSUMO_ACTIONS,
+            GameWSActionType.DRAW,
+            GameWSActionType.HU_HAND
+        };
+
+        /*──────────────────────────────────────────────*/
+        /*  Unity lifecycle                             */
+        /*──────────────────────────────────────────────*/
 
         private void Awake()
         {
@@ -24,380 +59,207 @@ namespace MCRGame.Game
             }
             Instance = this;
             DontDestroyOnLoad(gameObject);
+
+            SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
-        /// <summary>
-        /// WebSocket에서 수신한 메시지를 큐에 저장합니다.
-        /// </summary>
-        /// <param name="message">수신 메시지</param>
-        public void EnqueueMessage(GameWSMessage message)
+        private void OnDestroy()
         {
-            if (message == null)
-            {
-                Debug.LogWarning("[GameMessageMediator] null 메시지를 큐에 추가하려 했습니다.");
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
+
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (scene.name != "GameScene"){
+                _dispatcher = null;
                 return;
             }
-            messageQueue.Enqueue(message);
+            _dispatcher = GameEventDispatcher.Instance;
+            if (_dispatcher == null)
+                Debug.Log($"[GameMessageMediator] Dispatcher not found in scene {scene.name}");
+        }
+
+        private void Start()
+        {
+
+            _dispatcher = GameEventDispatcher.Instance;
+            if (_dispatcher == null)
+                Debug.Log("[GameMessageMediator] GameEventDispatcher not found in the scene.");
         }
 
         private void Update()
         {
-            // 현재 씬이 "GameScene"이고 GameManager 인스턴스가 존재할 경우 메시지 큐를 처리합니다.
             if (IsGameSceneReady())
-            {
                 ProcessQueue();
-            }
         }
 
-        /// <summary>
-        /// 현재 활성화된 씬이 GameScene이고 GameManager가 준비되어 있는지 확인합니다.
-        /// </summary>
-        /// <returns>조건이 충족되면 true</returns>
-        private bool IsGameSceneReady()
+        /*──────────────────────────────────────────────*/
+        /*  Public API                                  */
+        /*──────────────────────────────────────────────*/
+
+        public void EnqueueMessage(GameWSMessage message)
         {
-            return SceneManager.GetActiveScene().name == "GameScene" && GameManager.Instance != null;
+            if (message == null)
+            {
+                Debug.LogWarning("[GameMessageMediator] Tried to enqueue null message.");
+                return;
+            }
+            _messageQueue.Enqueue(message);
         }
 
-        /// <summary>
-        /// 큐에 저장된 메시지를 순차적으로 처리합니다.
-        /// </summary>
+        /*──────────────────────────────────────────────*/
+        /*  Internals                                   */
+        /*──────────────────────────────────────────────*/
+
+        private bool IsGameSceneReady()
+            => SceneManager.GetActiveScene().name == "GameScene" && GameManager.Instance != null;
+
         private void ProcessQueue()
         {
-            while (messageQueue.Count > 0)
+            while (_messageQueue.Count > 0)
             {
-                GameWSMessage message = messageQueue.Dequeue();
-                ProcessMessage(message);
+                var msg = _messageQueue.Dequeue();
+
+                // ① 게임플레이 이벤트면 Dispatcher 에게 위임
+                if (_dispatcher != null && GameplayEvents.Contains(msg.Event))
+                {
+                    _dispatcher.OnWSMessage(msg);
+                    continue;   // Mediator 에서 추가 처리 안 함
+                }
+
+                // ② 그 외(로비/점수/세션)… Mediator 내부 처리
+                ProcessNonGameplayMessage(msg);
             }
         }
 
-        /// <summary>
-        /// 개별 메시지를 이벤트 타입에 따라 처리하고, 필요한 경우 GameManager에 전달합니다.
-        /// </summary>
-        /// <param name="message">WebSocket 메시지</param>
-        private void ProcessMessage(GameWSMessage message)
+        private void ProcessNonGameplayMessage(GameWSMessage message)
         {
             switch (message.Event)
             {
-                case GameWSActionType.INIT_EVENT:
-                    Debug.Log("[GameMessageMediator] Init event received.");
-
-                    if (message.Data.TryGetValue("hand", out JToken handToken))
-                    {
-                        var handInts = handToken.ToObject<List<int>>();
-                        var initTiles = handInts.Select(i => (GameTile)i).ToList();
-
-                        GameTile? tsumoTile = null;
-                        if (message.Data.TryGetValue("tsumo_tile", out JToken tsumoToken) && tsumoToken.Type != JTokenType.Null)
-                        {
-                            int tsumoInt = tsumoToken.ToObject<int>();
-                            tsumoTile = (GameTile)tsumoInt;
-                            Debug.Log($"[GameMessageMediator] Tsumo tile: {tsumoTile}");
-
-                            if (tsumoTile.HasValue)
-                            {
-                                bool removed = initTiles.Remove(tsumoTile.Value);
-                                if (!removed)
-                                {
-                                    Debug.LogWarning($"[GameMessageMediator] initTiles에 {tsumoTile.Value}가 없어 제거하지 못했습니다.");
-                                }
-                            }
-                        }
-
-                        if (message.Data.TryGetValue("players_score", out JToken scoreToken))
-                        {
-                            var playersScores = scoreToken.ToObject<List<int>>();
-                            GameManager.Instance.UpdatePlayerScores(playersScores);
-                        }
-
-                        StartCoroutine(GameManager.Instance.InitHandCoroutine(initTiles, tsumoTile));
-                    }
-                    break;
-
-                case GameWSActionType.RELOAD_DATA:
-                    Debug.Log($"[GameMessageMediator] {message.Event} received");
-                    GameManager.Instance.ReloadData(message.Data);
+                /*──────────────────────────────────*/
+                /*  로비/게임 시작 관련              */
+                /*──────────────────────────────────*/
+                case GameWSActionType.CLIENT_GAME_START_INFO:
+                    OnClientGameStartInfo(message.Data);
                     break;
 
                 case GameWSActionType.GAME_START_INFO:
-                    Debug.Log("[GameMessageMediator] UPDATE_ACTION_ID event received.");
-                    Debug.Log("[GameMessageMediator] Data: " + message.Data.ToString());
-                    GameStartInfoData startInfo = message.Data.ToObject<GameStartInfoData>();
-                    if (startInfo != null)
-                    {
-                        Debug.Log("[GameMessageMediator] Updating GameManager with game start info.");
-                        GameManager.Instance.InitGame(startInfo.players);
-                    }
+                    OnGameStartInfo(message.Data);
                     break;
 
-                case GameWSActionType.END_GAME:
-                    Debug.Log("[GameMessageMediator] END_GAME event received.");
-
-                    // 1) 최종 점수 파싱
-                    List<int> finalScores = null;
-                    if (message.Data.TryGetValue("players_score", out JToken finalScoreToken))
-                    {
-                        finalScores = finalScoreToken.ToObject<List<int>>();
-                        Debug.Log("[GameMessageMediator] Final scores: "
-                                + string.Join(", ", finalScores));
-
-                        // 점수 갱신 (순위 팝업이나 UI용)
-                        GameManager.Instance.UpdatePlayerScores(finalScores);
-                    }
-                    else
-                    {
-                        Debug.LogWarning("[GameMessageMediator] END_GAME: players_score 키가 없습니다.");
-                    }
-                    GameManager.Instance.EndScorePopup();
+                case GameWSActionType.INIT_EVENT:
+                    OnInitEvent(message.Data);
                     break;
+
+                /*──────────────────────────────────*/
+                /*  게임 진행 보조                   */
+                /*──────────────────────────────────*/
+                case GameWSActionType.RELOAD_DATA:
+                    GameManager.Instance.ReloadData(message.Data);
+                    break;
+
                 case GameWSActionType.UPDATE_ACTION_ID:
-                    Debug.Log("[GameMessageMediator] GAME_START_INFO event received.");
-                    Debug.Log("[GameMessageMediator] Data: " + message.Data.ToString());
-                    if (message.Data.TryGetValue("action_id", out JToken actionIdToken))
-                    {
-                        int actionId = actionIdToken.ToObject<int>();
-                        GameManager.Instance.UpdateActionId(actionId);
-                    }
-                    else
-                    {
-                        Debug.LogWarning("[GameMessageMediator] UPDATE_ACTION_ID: applied_flowers 키가 없습니다.");
-                    }
+                    if (message.Data.TryGetValue("action_id", out JToken aidTok))
+                        GameManager.Instance.UpdateActionId(aidTok.ToObject<int>());
                     break;
+
                 case GameWSActionType.SET_TIMER:
-                    Debug.Log("[GameMessageMediator] set timer event received.");
                     GameManager.Instance.SetTimer(message.Data);
                     break;
-                case GameWSActionType.TSUMO_ACTIONS:
-                    Debug.Log("[GameMessageMediator] Tsumo actions received.");
-                    // message.Data는 JObject이므로 바로 넘겨줌
-                    // GameManager.Instance.ProcessTsumoActions(message.Data);
-                    StartCoroutine(GameManager.Instance.WaitAndProcessTsumo(message.Data));
+
+                /*──────────────────────────────────*/
+                /*  게임 종료                        */
+                /*──────────────────────────────────*/
+                case GameWSActionType.END_GAME:
+                    OnEndGame(message.Data);
                     break;
-                case GameWSActionType.DISCARD_ACTIONS:
-                case GameWSActionType.ROBBING_KONG_ACTIONS:
-                    Debug.Log($"[GameMessageMediator] {message.Event} received.");
-                    GameManager.Instance.ProcessDiscardActions(message.Data);
-                    break;
-                case GameWSActionType.DISCARD:
-                    Debug.Log("[GameMessageMediator] Discard Confirmed.");
-                    GameManager.Instance.ConfirmDiscard(message.Data);
-                    break;
-                case GameWSActionType.FLOWER:
-                    Debug.Log("[GameMessageMediator] Flower Confirmed.");
-                    GameManager.Instance.IsFlowerConfirming = true;
-                    StartCoroutine(GameManager.Instance.ConfirmFlower(message.Data));
-                    break;
-                
-                case GameWSActionType.PON:
-                case GameWSActionType.CHII:
-                case GameWSActionType.DAIMIN_KAN:
-                case GameWSActionType.SHOMIN_KAN:
-                case GameWSActionType.AN_KAN:
-                    Debug.Log($"[GameMessageMediator] {message.Event} received");
-                    GameManager.Instance.ConfirmCallBlock(message.Data);
-                    break;
-                case GameWSActionType.TSUMO:
-                    Debug.Log("[GameMessageMediator] broadcasted enemy tsumo");
-                    GameManager.Instance.ConfirmTsumo(message.Data);
-                    break;
+
+                /*──────────────────────────────────*/
+                /*  꽃 대체 (초기 핸드 특수 이벤트) */
+                /*──────────────────────────────────*/
                 case GameWSActionType.INIT_FLOWER_REPLACEMENT:
-                    Debug.Log("[GameMessageMediator] INIT_FLOWER_REPLACEMENT event received.");
-
-                    List<GameTile> newTiles = null;
-                    List<GameTile> appliedFlowers = null;
-                    List<int> flowerCounts = null;
-
-                    if (message.Data.TryGetValue("new_tiles", out JToken tilesToken))
-                    {
-                        List<int> newTilesInts = tilesToken.ToObject<List<int>>();
-                        newTiles = newTilesInts.Select(i => (GameTile)i).ToList();
-                        Debug.Log("[GameMessageMediator] New flower replacement tiles: " + string.Join(", ", newTiles));
-                    }
-                    else
-                    {
-                        Debug.LogWarning("[GameMessageMediator] INIT_FLOWER_REPLACEMENT: new_tiles 키가 없습니다.");
-                    }
-
-                    if (message.Data.TryGetValue("applied_flowers", out JToken appliedFlowersToken))
-                    {
-                        appliedFlowers = appliedFlowersToken.ToObject<List<GameTile>>();
-                        Debug.Log("[GameMessageMediator] Applied flower tiles: " + string.Join(", ", appliedFlowers));
-                    }
-                    else
-                    {
-                        Debug.LogWarning("[GameMessageMediator] INIT_FLOWER_REPLACEMENT: applied_flowers 키가 없습니다.");
-                    }
-
-                    if (message.Data.TryGetValue("flower_count", out JToken countToken))
-                    {
-                        flowerCounts = countToken.ToObject<List<int>>();
-                        Debug.Log("[GameMessageMediator] Flower counts for each hand: " + string.Join(", ", flowerCounts));
-                    }
-                    else
-                    {
-                        Debug.LogWarning("[GameMessageMediator] INIT_FLOWER_REPLACEMENT: flower_count 키가 없습니다.");
-                    }
-
-                    if (newTiles != null && appliedFlowers != null && flowerCounts != null)
-                    {
-                        Debug.Log("[GameMessageMediator] INIT_FLOWER_REPLACEMENT event received.");
-                        if (!GameManager.Instance.isInitHandDone)
-                        {
-                            Debug.Log("[GameMessageMediator] InitHand not finished. Queuing flower replacement.");
-                            GameManager.Instance.pendingFlowerReplacement.Add(message);
-                        }
-                        else
-                        {
-                            GameManager.Instance.ProcessInitFlowerReplacement(message);
-                        }
-                    }
+                    HandleInitFlowerReplacement(message);
                     break;
 
+                /*──────────────────────────────────*/
+                /*  기타 ACK/ERR                    */
+                /*──────────────────────────────────*/
                 case GameWSActionType.SUCCESS:
-                    Debug.Log("[GameMessageMediator] Success event received.");
-                    Debug.Log("[GameMessageMediator] Success data: " + message.Data.ToString());
-                    // 필요 시 성공 메시지를 UI 업데이트 등으로 전달
+                    Debug.Log("[GameMessageMediator] SUCCESS → " + message.Data);
                     break;
-
                 case GameWSActionType.ERROR:
-                    Debug.Log("[GameMessageMediator] Error event received.");
-                    Debug.Log("[GameMessageMediator] Error data: " + message.Data.ToString());
-                    // 필요 시 에러 메시지 처리
+                    Debug.LogWarning("[GameMessageMediator] ERROR → " + message.Data);
                     break;
-                case GameWSActionType.DRAW:
-                    Debug.Log("[GameMessageMediator] DRAW event received");
-                    List<List<GameTile>> anKanInfo2 = new List<List<GameTile>>();
-                    if (message.Data.TryGetValue("an_kan_infos", out JToken anKanToken2))
-                    {
-                        var infoIntsList = anKanToken2.ToObject<List<List<int>>>();
-                        foreach (var listInt in infoIntsList)
-                        {
-                            anKanInfo2.Add(listInt.Select(i => (GameTile)i).ToList());
-                        }
-                        Debug.Log($"[GameMessageMediator] an_kan_infos count: {anKanInfo2.Count}");
-                    }
-                    StartCoroutine(GameManager.Instance.ProcessDraw(anKanInfo2));
-                    break;
-                case GameWSActionType.HU_HAND:
-                    Debug.Log("[GameMessageMediator] HU_HAND event received.");
-                    try
-                    {
-                        // 핸드 타일 파싱
-                        List<GameTile> handTiles = new List<GameTile>();
-                        if (message.Data.TryGetValue("hand", out JToken winHandToken))
-                        {
-                            var handInts = winHandToken.ToObject<List<int>>();
-                            handTiles = handInts.Select(i => (GameTile)i).ToList();
-                            Debug.Log($"[GameMessageMediator] Hu hand tiles: {string.Join(", ", handTiles)}");
-                        }
-
-                        // 콜 블록 파싱
-                        List<CallBlockData> callBlocks = new List<CallBlockData>();
-                        if (message.Data.TryGetValue("call_blocks", out JToken blocksToken))
-                        {
-                            callBlocks = blocksToken.ToObject<List<CallBlockData>>();
-                            Debug.Log($"[GameMessageMediator] Call blocks count: {callBlocks.Count}");
-                        }
-
-                        // 점수 결과 파싱
-                        ScoreResult scoreResult = null;
-                        if (message.Data.TryGetValue("score_result", out JToken scoreToken))
-                        {
-                            scoreResult = scoreToken.ToObject<ScoreResult>();
-                            Debug.Log($"[GameMessageMediator] Score result: {scoreResult}");
-                        }
-
-                        // 플레이어 좌석 파싱
-                        AbsoluteSeat playerSeat = 0;
-                        if (message.Data.TryGetValue("player_seat", out JToken seatToken))
-                        {
-                            playerSeat = seatToken.ToObject<AbsoluteSeat>();
-                            Debug.Log($"[GameMessageMediator] Hu player seat: {playerSeat}");
-                        }
-
-                        AbsoluteSeat currentPlayerSeat = 0;
-                        if (message.Data.TryGetValue("current_player_seat", out JToken currSeatToken))
-                        {
-                            currentPlayerSeat = currSeatToken.ToObject<AbsoluteSeat>();
-                            Debug.Log($"[GameMessageMediator] Current player seat: {currentPlayerSeat}");
-                        }
-
-                        int flowerCount = 0;
-                        if (message.Data.TryGetValue("flower_count", out JToken flowerCountToken))
-                        {
-                            flowerCount = flowerCountToken.ToObject<int>();
-                            Debug.Log($"[GameMessageMediator] flower count: {flowerCount}");
-                        }
-
-                        // tsumo tile 파싱
-                        GameTile? tsumoTile = null;
-                        if (message.Data.TryGetValue("tsumo_tile", out JToken tsumoTileToken) && tsumoTileToken.Type != JTokenType.Null)
-                        {
-                            int? tsumoInt = tsumoTileToken.ToObject<int?>();
-                            if (tsumoInt.HasValue)
-                            {
-                                tsumoTile = (GameTile)tsumoInt.Value;
-                                Debug.Log($"[GameMessageMediator] Hu tsumo tile: {tsumoTile}");
-                            }
-                            else
-                            {
-                                tsumoTile = null;
-                                Debug.Log("[GameMessageMediator] tsumo_tile 값이 null입니다.");
-                            }
-                        }
-                        else
-                        {
-                            tsumoTile = null;
-                            Debug.Log("[GameMessageMediator] tsumo_tile 키가 없거나 null입니다.");
-                        }
-                        GameTile winningTile = GameTile.F0;
-                        if (message.Data.TryGetValue("winning_tile", out JToken winningTileToken))
-                        {
-                            int winningInt = winningTileToken.ToObject<int>();
-                            winningTile = (GameTile)winningInt;
-                            Debug.Log($"[GameMessageMediator] Hu winning tile: {winningTile}");
-                        }
-
-                        // an_kan_infos 파싱
-                        List<List<GameTile>> anKanInfos = new List<List<GameTile>>();
-                        if (message.Data.TryGetValue("an_kan_infos", out JToken anKanToken))
-                        {
-                            var infoIntsList = anKanToken.ToObject<List<List<int>>>();
-                            foreach (var listInt in infoIntsList)
-                            {
-                                anKanInfos.Add(listInt.Select(i => (GameTile)i).ToList());
-                            }
-                            Debug.Log($"[GameMessageMediator] an_kan_infos count: {anKanInfos.Count}");
-                        }
-
-                        // GameManager로 전달 (필요한 모든 정보 포함)
-                        if (handTiles != null && callBlocks != null && scoreResult != null)
-                        {
-                            StartCoroutine(GameManager.Instance.ProcessHuHand(
-                                handTiles,
-                                callBlocks,
-                                scoreResult,
-                                playerSeat,
-                                currentPlayerSeat,
-                                flowerCount,
-                                tsumoTile,
-                                anKanInfos,
-                                winningTile
-                            ));
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.LogError($"[GameMessageMediator] HU_HAND 처리 오류: {ex.Message}");
-                    }
-                    break;
-
 
                 default:
-                    Debug.Log("[GameMessageMediator] Unhandled event: " + message.Event);
+                    Debug.Log("[GameMessageMediator] Unhandled (non‑gameplay) event: " + message.Event);
                     break;
             }
         }
+
+        /*──────────────────────────────────────────────*/
+        /*  Handlers – Non‑Gameplay                     */
+        /*──────────────────────────────────────────────*/
+
+        private void OnClientGameStartInfo(JObject data)
+        {
+            if (data.TryGetValue("players", out JToken token))
+            {
+                GameManager.Instance.PlayerInfo = token.ToObject<List<RoomUserInfo>>();
+            }
+        }
+
+        private void OnGameStartInfo(JObject data)
+        {
+            var info = data.ToObject<GameStartInfoData>();
+            if (info != null)
+                GameManager.Instance.InitGame(info.players);
+        }
+
+        private void OnInitEvent(JObject data)
+        {
+            if (!data.TryGetValue("hand", out JToken handTok))
+                return;
+
+            var initTiles = handTok.ToObject<List<int>>().Select(i => (GameTile)i).ToList();
+
+            GameTile? tsumoTile = null;
+            if (data.TryGetValue("tsumo_tile", out JToken tsumoTok) && tsumoTok.Type != JTokenType.Null)
+            {
+                tsumoTile = (GameTile)tsumoTok.ToObject<int>();
+                initTiles.Remove(tsumoTile.Value); // tsumoTile 은 핸드에서 제외
+            }
+
+            if (data.TryGetValue("players_score", out JToken scoreTok))
+            {
+                var scores = scoreTok.ToObject<List<int>>();
+                GameManager.Instance.UpdatePlayerScores(scores);
+            }
+
+            StartCoroutine(GameManager.Instance.InitHandCoroutine(initTiles, tsumoTile));
+        }
+
+        private void OnEndGame(JObject data)
+        {
+            if (data.TryGetValue("players_score", out JToken scoreTok))
+            {
+                var scores = scoreTok.ToObject<List<int>>();
+                GameManager.Instance.UpdatePlayerScores(scores);
+            }
+            GameManager.Instance.EndScorePopup();
+        }
+
+        /* 꽃 대체 – InitHand 도중에 올 수 있어 대기 큐 필요 */
+        private void HandleInitFlowerReplacement(GameWSMessage msg)
+        {
+            if (!GameManager.Instance.isInitHandDone)
+            {
+                GameManager.Instance.pendingFlowerReplacement.Add(msg);
+            }
+            else
+            {
+                GameManager.Instance.ProcessInitFlowerReplacement(msg);
+            }
+        }
     }
-
-
 }

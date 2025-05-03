@@ -244,7 +244,6 @@ namespace MCRGame.Net
                 downloadHandler = new DownloadHandlerBuffer()
             };
             req.SetRequestHeader("Authorization", $"Bearer {PlayerDataManager.Instance.AccessToken}");
-            GameManager.Instance.PlayerInfo = Players;
             yield return req.SendWebRequest();
             if (req.result == UnityWebRequest.Result.Success)
                 Debug.Log("[RoomService] GameStarted");
@@ -341,6 +340,7 @@ namespace MCRGame.Net
                         Debug.Log("[RoomService] ▶ user_joined branch");
                         // 1) 데이터 파싱
                         var newUser = data.ToObject<RoomUserInfo>();
+                        Debug.Log($"[RoomService] NewUser: {newUser.ToString()}");
                         Debug.Log($"[RoomService] NewUser: uid={newUser.uid}, slot={newUser.slot_index}, ready={newUser.is_ready}");
 
                         // 2) 기존 슬롯에 있으면 교체, 없으면 추가
@@ -443,6 +443,16 @@ namespace MCRGame.Net
 
                 case "game_started":
                     {
+                        var wsMessage = new GameWSMessage
+                        {
+                            Event = GameWSActionType.CLIENT_GAME_START_INFO,
+                            Data = new JObject
+                            {
+                                ["players"] = JArray.FromObject(Players)
+                            }
+                        };
+
+                        GameMessageMediator.Instance.EnqueueMessage(wsMessage);
                         Debug.Log("[RoomService] ▶ game_started branch");
                         // Game 서버 URL 업데이트
                         var gameUrl = j["data"]["game_url"]?.Value<string>();

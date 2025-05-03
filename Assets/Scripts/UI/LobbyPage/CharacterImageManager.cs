@@ -46,7 +46,15 @@ namespace MCRGame.UI
             }
 
             Debug.Log($"[TileImageManager] {character_name_to_sprite.Count}개의 캐릭터 스프라이트를 로드했습니다.");
+            foreach (Sprite sprite in characterSprites)
+            {
+                Debug.Log($"{sprite.name}");
+            }
             Debug.Log($"[TileImageManager] {character_name_to_pfp_sprite.Count}개의 캐릭터 프로필 스프라이트를 로드했습니다.");
+            foreach (Sprite sprite in pfpSprites)
+            {
+                Debug.Log($"{sprite.name}");
+            }
         }
 
         public Sprite get_character_sprite_by_code(string name)

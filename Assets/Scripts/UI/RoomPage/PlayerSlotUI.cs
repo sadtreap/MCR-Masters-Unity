@@ -17,7 +17,7 @@ namespace MCRGame.UI
             Uid = info.uid;
             nameText.gameObject.SetActive(true);
             readyIndicator.gameObject.SetActive(true);
-            characterImage.gameObject.SetActive(true);                
+            characterImage.gameObject.SetActive(true);
             characterImage.sprite = CharacterImageManager.Instance.get_character_sprite_by_code(info.current_character.code);
             characterImage.color = new Color(255, 255, 255, 255);
             nameText.text = info.nickname + (info.uid == hostUid ? " (Host)" : "");
