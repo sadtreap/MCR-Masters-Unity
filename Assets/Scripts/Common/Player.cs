@@ -18,6 +18,7 @@ namespace MCRGame.Common
 
         [JsonProperty("score")]
         public int Score { get; set; }
+        
         [JsonProperty("current_character")]
         public CharacterResponse CurrentCharacter { get; set; }
 
