@@ -33,6 +33,12 @@ namespace MCRGame.Game
             IsFlowerConfirming = false;
             isActionUIActive = false;
             isAfterTsumoAction = false;
+
+            AutoHuFlag = false;
+            PreventCallFlag = false;
+            AutoFlowerFlag = true;
+            TsumogiriFlag = false;
+
             CanClick = false;
             NowHoverTile = null;
             NowHoverSource = null;

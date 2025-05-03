@@ -25,11 +25,11 @@ namespace MCRGame.Game
 /*──────────────────────────────────────────────────*/
 #region ⚙ CORE
 
-        /**************** ① Singleton ****************/
+        /**************** ① Singleton ****************/
         public static GameManager Instance { get; private set; }
 
 
-        /**************** ② 직렬화/공개 필드 ****************/
+        /**************** ② 직렬화/공개 필드 ****************/
         #region ▶ Serialized & Public Fields
 
         /* ---------- 게임 데이터 ---------- */
@@ -57,6 +57,58 @@ namespace MCRGame.Game
         public bool  isAfterTsumoAction   = false;
         public bool  CanClick             = false;
 
+        private bool autoHuFlag;
+        public bool AutoHuFlag
+        {
+            get => autoHuFlag;
+            set
+            {
+                if (autoHuFlag == value) return;
+                autoHuFlag = value;
+                OnAutoHuFlagChanged?.Invoke(autoHuFlag);
+            }
+        }
+        public event Action<bool> OnAutoHuFlagChanged;
+
+        private bool preventCallFlag;
+        public bool PreventCallFlag
+        {
+            get => preventCallFlag;
+            set
+            {
+                if (preventCallFlag == value) return;
+                preventCallFlag = value;
+                OnPreventCallFlagChanged?.Invoke(preventCallFlag);
+            }
+        }
+        public event Action<bool> OnPreventCallFlagChanged;
+
+        private bool autoFlowerFlag;
+        public bool AutoFlowerFlag
+        {
+            get => autoFlowerFlag;
+            set
+            {
+                if (autoFlowerFlag == value) return;
+                autoFlowerFlag = value;
+                OnAutoFlowerFlagChanged?.Invoke(autoFlowerFlag);
+            }
+        }
+        public event Action<bool> OnAutoFlowerFlagChanged;
+        private bool tsumogiriFlag;
+        public bool TsumogiriFlag
+        {
+            get => tsumogiriFlag;
+            set
+            {
+                if (tsumogiriFlag == value) return;
+                tsumogiriFlag = value;
+                OnTsumogiriFlagChanged?.Invoke(tsumogiriFlag);
+            }
+        }
+        public event Action<bool> OnTsumogiriFlagChanged;
+
+
         public GameTile?  NowHoverTile  = null;
         public TileManager NowHoverSource;
 
@@ -70,11 +122,11 @@ namespace MCRGame.Game
         private Dictionary<int,AbsoluteSeat> playerIndexToSeat;
         private Dictionary<string,int>       playerUidToIndex;
 
-        /* ---------- Hand & CallBlock Field ---------- */
+        /* ---------- Hand & CallBlock Field ---------- */
         [SerializeField] public Hand3DField[] playersHand3DFields;
         [SerializeField] private CallBlockField[] callBlockFields;
 
-        /* ---------- UI Refs ---------- */
+        /* ---------- UI Refs ---------- */
         [SerializeField] private TextMeshProUGUI leftTilesText;
         [SerializeField] private TextMeshProUGUI currentRoundText;
 
@@ -125,7 +177,7 @@ namespace MCRGame.Game
         [SerializeField] private Sprite defaultFrameSprite;
         [SerializeField] private Sprite defaultProfileImageSprite;
 
-        [Header("Tsumo Action UI")]
+        [Header("Tsumo Action UI")]
         [SerializeField] private RectTransform actionButtonPanel;
         [SerializeField] private GameObject    actionButtonPrefab;
         [SerializeField] private Sprite skipButtonSprite;
@@ -154,8 +206,8 @@ namespace MCRGame.Game
         #endregion /* ▶ Serialized & Public Fields */
 
 
-        /**************** ③ Unity Lifecycle ****************/
-        #region ▶ Unity Lifecycle
+        /**************** ③ Unity Lifecycle ****************/
+        #region ▶ Unity Lifecycle
 
         private void Awake()
         {
@@ -179,7 +231,7 @@ namespace MCRGame.Game
         #endregion
 
 
-        /**************** ④ Helper 메서드 ****************/
+        /**************** ④ Helper 메서드 ****************/
         #region ▶ Helpers
 
         private void moveTurn(RelativeSeat seat)
@@ -218,7 +270,7 @@ namespace MCRGame.Game
         #endregion
 
 
-        /**************** ⑤ Deal Table (상수) ****************/
+        /**************** ⑤ Deal Table (상수) ****************/
         private static readonly AbsoluteSeat[][] DEAL_TABLE =
         {
             new[]{ AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH, AbsoluteSeat.WEST,  AbsoluteSeat.NORTH }, //1
