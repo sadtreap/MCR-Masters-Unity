@@ -94,7 +94,7 @@ namespace MCRGame.UI
             }
             finally
             {
-                if (prevCanClick == false)
+                if (GameManager.Instance.CanClick == false)
                     GameManager.Instance.CanClick = prevCanClick;
                 isTileOpRunning = false;             // 🔓
             }
