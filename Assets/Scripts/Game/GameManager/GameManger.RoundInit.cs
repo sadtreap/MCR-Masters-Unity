@@ -34,9 +34,9 @@ namespace MCRGame.Game
             isActionUIActive = false;
             isAfterTsumoAction = false;
 
-            AutoHuFlag = false;
+            AutoHuFlag = IsAutoHuDefault;
             PreventCallFlag = false;
-            AutoFlowerFlag = true;
+            AutoFlowerFlag = IsAutoFlowerDefault;
             TsumogiriFlag = false;
 
             CanClick = false;

@@ -684,6 +684,7 @@ namespace MCRGame.Game
                     if (AutoFlowerFlag)
                     {
                         moveTurn(RelativeSeat.SELF);
+                        CanClick = false;
                         SendSelectedAction(action);
                         return;
                     }
