@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using MCRGame.Common;
 using MCRGame.Game;
+using MCRGame.Net;
 
 namespace MCRGame.UI
 {
@@ -15,6 +16,8 @@ namespace MCRGame.UI
 
         [Header("Entry Prefab")]
         [SerializeField] private GameObject playerEntryPrefab;
+
+        [SerializeField] private Image CharacterImage;
 
         [Header("Horizontal Offsets")]
         [Tooltip("애니메이션 시작 X 위치 (왼쪽)")]
@@ -108,6 +111,9 @@ namespace MCRGame.UI
                     _ => grayColor
                 };
                 rankText.color = prefixColor;
+
+                CharacterImage.sprite = CharacterImageManager.Instance.get_character_sprite_by_code(GameManager.Instance.PlayerInfo.FirstOrDefault(p => p.nickname == player.Nickname).current_character.code);
+                CharacterImage.color = new Color(255, 255, 255, 255);
 
                 // 4) 이름
                 var nameText = entry.transform.Find("NickName").GetComponentInChildren<Text>();

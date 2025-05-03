@@ -1,4 +1,5 @@
 using System;
+using MCRGame.Net;
 using Newtonsoft.Json;
 
 namespace MCRGame.Common
@@ -17,6 +18,8 @@ namespace MCRGame.Common
 
         [JsonProperty("score")]
         public int Score { get; set; }
+        
+        public CharacterResponse CurrentCharacter { get; set; }
 
         public Player() { }
 
