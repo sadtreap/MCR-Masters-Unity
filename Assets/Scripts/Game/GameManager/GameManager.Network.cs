@@ -96,7 +96,7 @@ namespace MCRGame.Game
             yield return new WaitUntil(() =>
                 !IsFlowerConfirming);
 
-            ProcessTsumoActions(data);
+            yield return ProcessTsumoActions(data);
         }
 
 
@@ -647,7 +647,7 @@ namespace MCRGame.Game
             }
         }
 
-        public void ProcessTsumoActions(JObject data)
+        public IEnumerator ProcessTsumoActions(JObject data)
         {
             UpdateLeftTilesByDelta(-1);
 
@@ -658,10 +658,17 @@ namespace MCRGame.Game
             currentActionId = data["action_id"].ToObject<int>();
             remainingTime = data["left_time"].ToObject<float>();
 
+            tenpaiAssistDict.Clear();
+            if (data.TryGetValue("tenpai_assist", out JToken assistToken)
+                && assistToken.Type == JTokenType.Object)
+            {
+                tenpaiAssistDict = BuildTenpaiAssistDict((JObject)assistToken);
+            }
+
             GameTile newTsumoTile = (GameTile)data["tile"].ToObject<int>();
             if (gameHandManager.GameHandPublic.HandSize < GameHand.FULL_HAND_SIZE)
             {
-                StartCoroutine(gameHandManager.RunExclusive(gameHandManager.AddTsumo(newTsumoTile)));
+                yield return gameHandManager.RunExclusive(gameHandManager.AddTsumo(newTsumoTile));
             }
 
 
@@ -676,7 +683,7 @@ namespace MCRGame.Game
                         moveTurn(RelativeSeat.SELF);
                         CanClick = false;
                         SendSelectedAction(action);
-                        return;
+                        yield break;
                     }
                 }
                 else if (action.Type == GameActionType.FLOWER)
@@ -686,7 +693,7 @@ namespace MCRGame.Game
                         moveTurn(RelativeSeat.SELF);
                         CanClick = false;
                         SendSelectedAction(action);
-                        return;
+                        yield break;
                     }
                 }
             }
@@ -694,8 +701,8 @@ namespace MCRGame.Game
             {
                 moveTurn(RelativeSeat.SELF);
                 CanClick = false;
-                StartCoroutine(gameHandManager.RunExclusive(gameHandManager.RequestDiscardRightmostTile()));
-                return;
+                yield return gameHandManager.RunExclusive(gameHandManager.RequestDiscardRightmostTile());
+                yield break;
             }
 
             if (timerText != null)
@@ -737,13 +744,6 @@ namespace MCRGame.Game
                             OnActionButtonClicked(act));
                     }
                 }
-            }
-
-            tenpaiAssistDict.Clear();
-            if (data.TryGetValue("tenpai_assist", out JToken assistToken)
-                && assistToken.Type == JTokenType.Object)
-            {
-                tenpaiAssistDict = BuildTenpaiAssistDict((JObject)assistToken);
             }
 
             moveTurn(RelativeSeat.SELF);

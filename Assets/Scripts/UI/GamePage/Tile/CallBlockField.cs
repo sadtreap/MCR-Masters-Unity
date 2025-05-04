@@ -277,7 +277,7 @@ namespace MCRGame.UI
 
                 // X: 선형 보간
                 float x = Mathf.Lerp(startLocal.x, finalPos.x, tNorm);
-                // Z: Ease‑out 보간
+                // Z: Ease-out 보간
                 float z = Mathf.Lerp(startLocal.z, finalPos.z, 1f - Mathf.Pow(1f - tNorm, 2f));
                 // Y: 선형 보간 + 불룩 효과 (4*t*(1-t))
                 float baseY = Mathf.Lerp(startLocal.y, finalPos.y, tNorm);

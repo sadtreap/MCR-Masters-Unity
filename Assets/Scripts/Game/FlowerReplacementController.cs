@@ -87,7 +87,7 @@ namespace MCRGame.Game
                 yield return new WaitForSeconds(0.3f);
             }
 
-            // 2) FLOWER PHASE fade‑out
+            // 2) FLOWER PHASE fade-out
             if (flowerPhaseImg != null)
             {
                 yield return FadeOut(flowerPhaseImg, .2f);

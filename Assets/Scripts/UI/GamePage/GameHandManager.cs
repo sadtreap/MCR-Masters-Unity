@@ -52,7 +52,7 @@ namespace MCRGame.UI
 
         private TileManager requestedDiscardTile;
 
-        private bool isTileOpRunning = false;              // 🔒 모든 타일‑변경(파괴·추가·재배치) 공통 락
+        private bool isTileOpRunning = false;              // 🔒 모든 타일-변경(파괴·추가·재배치) 공통 락
 
         private IEnumerator WaitForTileOpDone()
         {
@@ -90,7 +90,7 @@ namespace MCRGame.UI
 
             try
             {
-                yield return StartCoroutine(body);   // 본‑작업
+                yield return StartCoroutine(body);   // 본-작업
             }
             finally
             {

@@ -12,7 +12,7 @@ using MCRGame.Game.Events;   // ★ Dispatcher 네임스페이스
 namespace MCRGame.Game
 {
     /// <summary>
-    /// WebSocket → 메인 쓰레드 전달용 큐 + 비‑게임플레이(로비/점수) 메시지 처리.
+    /// WebSocket → 메인 쓰레드 전달용 큐 + 비-게임플레이(로비/점수) 메시지 처리.
     /// 실제 게임플레이 메시지는 GameEventDispatcher 로 넘긴다.
     /// </summary>
     public class GameMessageMediator : MonoBehaviour
@@ -192,13 +192,13 @@ namespace MCRGame.Game
                     break;
 
                 default:
-                    Debug.Log("[GameMessageMediator] Unhandled (non‑gameplay) event: " + message.Event);
+                    Debug.Log("[GameMessageMediator] Unhandled (non-gameplay) event: " + message.Event);
                     break;
             }
         }
 
         /*──────────────────────────────────────────────*/
-        /*  Handlers – Non‑Gameplay                     */
+        /*  Handlers – Non-Gameplay                     */
         /*──────────────────────────────────────────────*/
 
         private void OnClientGameStartInfo(JObject data)

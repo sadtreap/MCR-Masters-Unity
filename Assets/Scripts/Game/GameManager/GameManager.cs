@@ -21,7 +21,7 @@ namespace MCRGame.Game
     public partial class GameManager : MonoBehaviour
     {
         /*──────────────────────────────────────────────────*/
-        /*           ⚙ CORE : 필드 / Awake‑Update / 유틸        */
+        /*           ⚙ CORE : 필드 / Awake-Update / 유틸        */
         /*──────────────────────────────────────────────────*/
         #region ⚙ CORE
 
