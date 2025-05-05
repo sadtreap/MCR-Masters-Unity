@@ -291,6 +291,10 @@ namespace MCRGame.UI
             Data.Type = CallBlockType.SHOMIN_KONG;
             Debug.Log($"[ApplyShominKong] CallBlock 타입 업데이트: {CallBlockType.PUNG} → {Data.Type}");
 
+            var field = GetComponentInParent<CallBlockField>();
+            if (field != null)
+                field.RegisterCallBlockTile(Data.FirstTile, newTile);
+
             Debug.Log("[ApplyShominKong] 완료");
         }
 
