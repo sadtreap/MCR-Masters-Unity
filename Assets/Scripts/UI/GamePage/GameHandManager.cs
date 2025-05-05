@@ -52,7 +52,7 @@ namespace MCRGame.UI
 
         private TileManager requestedDiscardTile;
 
-        private bool isTileOpRunning = false;              // 🔒 모든 타일‑변경(파괴·추가·재배치) 공통 락
+        private bool isTileOpRunning = false;              // 🔒 모든 타일-변경(파괴·추가·재배치) 공통 락
 
         private IEnumerator WaitForTileOpDone()
         {
@@ -85,20 +85,17 @@ namespace MCRGame.UI
             // ❷ 락이 비어 있으면 정상 절차
             yield return WaitForTileOpDone();        // (사실상 필요 없지만 안전용)
             isTileOpRunning = true;                  // 🔒
-            // bool prevIsAnimating = IsAnimating;
             bool prevCanClick = GameManager.Instance.CanClick;
-            // ResetPositionAll
-            // IsAnimating = true;
             GameManager.Instance.CanClick = false;
 
             try
             {
-                yield return StartCoroutine(body);   // 본‑작업
+                yield return StartCoroutine(body);   // 본-작업
             }
             finally
             {
-                // IsAnimating = prevIsAnimating;
-                GameManager.Instance.CanClick = prevCanClick;
+                if (GameManager.Instance.CanClick == false)
+                    GameManager.Instance.CanClick = prevCanClick;
                 isTileOpRunning = false;             // 🔓
             }
         }

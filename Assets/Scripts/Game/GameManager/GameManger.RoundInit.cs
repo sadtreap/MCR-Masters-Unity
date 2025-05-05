@@ -33,6 +33,12 @@ namespace MCRGame.Game
             IsFlowerConfirming = false;
             isActionUIActive = false;
             isAfterTsumoAction = false;
+
+            AutoHuFlag = IsAutoHuDefault;
+            PreventCallFlag = false;
+            AutoFlowerFlag = IsAutoFlowerDefault;
+            TsumogiriFlag = false;
+
             CanClick = false;
             NowHoverTile = null;
             NowHoverSource = null;
@@ -54,7 +60,7 @@ namespace MCRGame.Game
             ResetAllBlinkTurnEffects();
             UpdateCurrentRoundUI();
 
-            InitSeatIndexMapping();          // ① 좌석‑인덱스 매핑
+            InitSeatIndexMapping();          // ① 좌석-인덱스 매핑
             UpdateSeatLabels();              // ② 자리 라벨
             UpdateScoreText();               // ③ 점수 라벨
             InitializeProfileUI();           // ④ 프로필

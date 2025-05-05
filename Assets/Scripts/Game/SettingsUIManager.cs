@@ -18,12 +18,17 @@ namespace MCRgame.Game
         [SerializeField] private GameObject voiceContentPrefab;       // Action 볼륨 슬라이더 프리팹
         [SerializeField] private GameObject sfxContentPrefab;         // Discard 볼륨 슬라이더 프리팹
         [SerializeField] private GameObject rightTsumoContentPrefab; // 우클릭 쯔모기리 토글 프리팹
+        [SerializeField] private GameObject autoHuDefaultContentPrefab;
+        [SerializeField] private GameObject autoFlowerDefaultContentPrefab;
 
-        // 런타임에 Instantiate 후에 할당됩니다
+        private Toggle autoHuDefaultToggle;
+        private Toggle autoFlowerDefaultToggle;
         private Slider actionVolumeSlider;
         private Slider discardVolumeSlider;
         private Toggle rightClickTsumogiriToggle;
 
+        private const string PREF_AUTO_HU_DEFAULT = "AutoHuDefault";
+        private const string PREF_AUTO_FLOWER_DEFAULT = "AutoFlowerDefault";
         private const string PREF_ACTION_VOL = "ActionVolume";
         private const string PREF_DISCARD_VOL = "DiscardVolume";
         private const string PREF_RIGHT_CLICK = "RightClickTsumogiri";
@@ -42,6 +47,23 @@ namespace MCRgame.Game
 
             // 3) 패널 초기 상태
             settingsPanel.SetActive(false);
+
+            // 1) 저장값 로드 (자동 Hu: default false, 자동 Flower: default true)
+            bool huDefault = PlayerPrefs.GetInt(PREF_AUTO_HU_DEFAULT, 0) == 1;
+            bool flowerDefault = PlayerPrefs.GetInt(PREF_AUTO_FLOWER_DEFAULT, 1) == 1;
+
+            // 2) 토글 초기화
+            autoHuDefaultToggle.isOn = huDefault;
+            autoFlowerDefaultToggle.isOn = flowerDefault;
+
+            // 3) GameManager 에 즉시 적용
+            GameManager.Instance.IsAutoHuDefault = huDefault;
+            GameManager.Instance.IsAutoFlowerDefault = flowerDefault;
+
+            // 4) 토글 이벤트 연결
+            autoHuDefaultToggle.onValueChanged.AddListener(OnAutoHuDefaultChanged);
+            autoFlowerDefaultToggle.onValueChanged.AddListener(OnAutoFlowerDefaultChanged);
+
 
             // 4) 저장된 값 로드 (없으면 default)
             float aVol = PlayerPrefs.GetFloat(PREF_ACTION_VOL, 1f);
@@ -92,11 +114,33 @@ namespace MCRgame.Game
                 rightClickTsumogiriToggle = new GameObject("DummyToggle")
                     .AddComponent<Toggle>();
             }
+
+            // 4) 자동 후(default false)
+            var huGO = Instantiate(autoHuDefaultContentPrefab, contentContainer);
+            autoHuDefaultToggle = huGO.GetComponentInChildren<Toggle>();
+
+            // 5) 자동 꽃(default true)
+            var flGO = Instantiate(autoFlowerDefaultContentPrefab, contentContainer);
+            autoFlowerDefaultToggle = flGO.GetComponentInChildren<Toggle>();
         }
 
 
         private void OpenPanel() => settingsPanel.SetActive(!settingsPanel.activeSelf);
         private void ClosePanel() => settingsPanel.SetActive(false);
+
+        // 자동 후 변경
+        private void OnAutoHuDefaultChanged(bool on)
+        {
+            GameManager.Instance.IsAutoHuDefault = on;
+            PlayerPrefs.SetInt(PREF_AUTO_HU_DEFAULT, on ? 1 : 0);
+        }
+
+        // 자동 꽃 변경
+        private void OnAutoFlowerDefaultChanged(bool on)
+        {
+            GameManager.Instance.IsAutoFlowerDefault = on;
+            PlayerPrefs.SetInt(PREF_AUTO_FLOWER_DEFAULT, on ? 1 : 0);
+        }
 
         private void OnActionVolumeChanged(float v)
         {

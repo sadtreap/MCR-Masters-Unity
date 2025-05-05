@@ -17,7 +17,7 @@ namespace MCRGame.Game.Events
     }
 
     /*──────────────────────────────────────────────*/
-    /*  2. Dispatcher (Singleton, per‑scene)        */
+    /*  2. Dispatcher (Singleton, per-scene)        */
     /*──────────────────────────────────────────────*/
 
     [RequireComponent(typeof(CallBlockHandler))]

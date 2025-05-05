@@ -69,10 +69,10 @@ namespace MCRGame.Game
                 Debug.LogError($"[SetTimer] JSON 파싱 중 오류: {ex.Message}");
             }
         }
-#endregion
+        #endregion
 
-/*  ──  서버 요청 / DISCARDS  ──────────────────────── */
-#region ▶ 클라이언트 → 서버 요청
+        /*  ──  서버 요청 / DISCARDS  ──────────────────────── */
+        #region ▶ 클라이언트 → 서버 요청
 
         /// <summary> TileManager 클릭 시 호출: 서버로 검증 요청 </summary>
         public void RequestDiscard(GameTile tile, bool is_tsumogiri)
@@ -85,10 +85,10 @@ namespace MCRGame.Game
             GameWS.Instance.SendGameEvent(GameWSActionType.GAME_EVENT, payload);
         }
 
-#endregion
+        #endregion
 
-/*  ──  Confirm ● 서버 Broadcast  ─────────────────── */
-#region ▶ Confirm 메시지
+        /*  ──  Confirm ● 서버 Broadcast  ─────────────────── */
+        #region ▶ Confirm 메시지
 
         public IEnumerator WaitAndProcessTsumo(JObject data)
         {
@@ -96,7 +96,7 @@ namespace MCRGame.Game
             yield return new WaitUntil(() =>
                 !IsFlowerConfirming);
 
-            ProcessTsumoActions(data);
+            yield return ProcessTsumoActions(data);
         }
 
 
@@ -373,10 +373,10 @@ namespace MCRGame.Game
             }
         }
 
-#endregion
+        #endregion
 
-/*  ──  Process & Reload  ─────────────────────────── */
-#region ▶ Reload 처리
+        /*  ──  Process & Reload  ─────────────────────────── */
+        #region ▶ Reload 처리
 
         public void ReloadDiscardActions(List<GameAction> list)
         {
@@ -565,9 +565,9 @@ namespace MCRGame.Game
             Debug.Log($"[GameManager] ReloadData 완료 - 남은 시간: {remainingTime:F2}s");
         }
 
-#endregion
+        #endregion
 
-#region ▶ Process 처리
+        #region ▶ Process 처리
 
         public void ProcessDiscardActions(JObject data)
         {
@@ -575,8 +575,30 @@ namespace MCRGame.Game
 
             isAfterTsumoAction = false;
 
-            // 1) action_id, 남은 시간 초기화
+
+            // 1) action_id
             currentActionId = data["action_id"].ToObject<int>();
+            // 2) GameAction 리스트로 변환 후 정렬
+            var list = data["actions"].ToObject<List<GameAction>>();
+            list.Sort();
+
+            foreach (var action in list)
+            {
+                if (action.Type == GameActionType.HU)
+                {
+                    if (AutoHuFlag)
+                    {
+                        SendSelectedAction(action);
+                        return;
+                    }
+                }
+            }
+            if (PreventCallFlag)
+            {
+                OnSkipButtonClicked();
+                return;
+            }
+
             remainingTime = data["left_time"].ToObject<float>();
             if (timerText != null)
             {
@@ -584,9 +606,6 @@ namespace MCRGame.Game
                 timerText.text = Mathf.FloorToInt(remainingTime).ToString();
             }
 
-            // 2) GameAction 리스트로 변환 후 정렬
-            var list = data["actions"].ToObject<List<GameAction>>();
-            list.Sort();
 
             // 3) SKIP 버튼 (항상 제일 먼저)
             if (list.Count > 0)
@@ -628,7 +647,7 @@ namespace MCRGame.Game
             }
         }
 
-        public void ProcessTsumoActions(JObject data)
+        public IEnumerator ProcessTsumoActions(JObject data)
         {
             UpdateLeftTilesByDelta(-1);
 
@@ -639,20 +658,58 @@ namespace MCRGame.Game
             currentActionId = data["action_id"].ToObject<int>();
             remainingTime = data["left_time"].ToObject<float>();
 
+            tenpaiAssistDict.Clear();
+            if (data.TryGetValue("tenpai_assist", out JToken assistToken)
+                && assistToken.Type == JTokenType.Object)
+            {
+                tenpaiAssistDict = BuildTenpaiAssistDict((JObject)assistToken);
+            }
+
             GameTile newTsumoTile = (GameTile)data["tile"].ToObject<int>();
             if (gameHandManager.GameHandPublic.HandSize < GameHand.FULL_HAND_SIZE)
             {
-                StartCoroutine(gameHandManager.RunExclusive(gameHandManager.AddTsumo(newTsumoTile)));
+                yield return gameHandManager.RunExclusive(gameHandManager.AddTsumo(newTsumoTile));
             }
+
+
+            var list = data["actions"].ToObject<List<GameAction>>();
+            list.Sort();
+            foreach (var action in list)
+            {
+                if (action.Type == GameActionType.HU)
+                {
+                    if (AutoHuFlag)
+                    {
+                        moveTurn(RelativeSeat.SELF);
+                        CanClick = false;
+                        SendSelectedAction(action);
+                        yield break;
+                    }
+                }
+                else if (action.Type == GameActionType.FLOWER)
+                {
+                    if (AutoFlowerFlag)
+                    {
+                        moveTurn(RelativeSeat.SELF);
+                        CanClick = false;
+                        SendSelectedAction(action);
+                        yield break;
+                    }
+                }
+            }
+            if (TsumogiriFlag)
+            {
+                moveTurn(RelativeSeat.SELF);
+                CanClick = false;
+                yield return gameHandManager.RunExclusive(gameHandManager.RequestDiscardRightmostTile());
+                yield break;
+            }
+
             if (timerText != null)
             {
                 timerText.gameObject.SetActive(remainingTime > 0f);
                 timerText.text = Mathf.FloorToInt(remainingTime).ToString();
             }
-
-            var list = data["actions"].ToObject<List<GameAction>>();
-            list.Sort();
-
             // Skip 버튼
             if (list.Count > 0)
             {
@@ -689,21 +746,14 @@ namespace MCRGame.Game
                 }
             }
 
-            tenpaiAssistDict.Clear();
-            if (data.TryGetValue("tenpai_assist", out JToken assistToken)
-                && assistToken.Type == JTokenType.Object)
-            {
-                tenpaiAssistDict = BuildTenpaiAssistDict((JObject)assistToken);
-            }
-
             moveTurn(RelativeSeat.SELF);
         }
 
-#endregion
-/*────────────────────────────────────────────────────*/
+        #endregion
+        /*────────────────────────────────────────────────────*/
 
-/*  ──  기타 헬퍼  ────────────────────────────────── */
-#region ▶ Flower Replacement & Result
+        /*  ──  기타 헬퍼  ────────────────────────────────── */
+        #region ▶ Flower Replacement & Result
 
         public void ProcessInitFlowerReplacement(GameWSMessage message)
         {
@@ -828,7 +878,7 @@ namespace MCRGame.Game
             //     EndScorePopup();
             // }
         }
-#endregion
-#endregion /* 📡 WS 메시지 핸들러 */
+        #endregion
+        #endregion /* 📡 WS 메시지 핸들러 */
     }
 }
