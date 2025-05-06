@@ -9,6 +9,9 @@ namespace MCRGame.UI
     {
         [Header("CallBlock Settings")]
         public List<GameObject> callBlocks;
+        private Dictionary<GameTile, List<GameObject>> tileObjectDictionary = new();
+        private readonly List<Renderer> _highlighted = new();
+
 
         [Header("Animation Settings")]
         public float cbDropHeight = 10f;      // 위에서 얼마나 높이 시작할지
@@ -34,6 +37,8 @@ namespace MCRGame.UI
             if (callBlocks == null)
             {
                 callBlocks = new List<GameObject>();
+                tileObjectDictionary.Clear();
+                _highlighted.Clear();
             }
             else
             {
@@ -41,11 +46,21 @@ namespace MCRGame.UI
             }
         }
 
+        /// <summary>
+        /// CallBlock 내부에서 새로 생성된 타일 GameObject를 사전에 등록합니다.
+        /// </summary>
+        public void RegisterCallBlockTile(GameTile tile, GameObject tileObj)
+        {
+            if (!tileObjectDictionary.TryGetValue(tile, out var list))
+                tileObjectDictionary[tile] = list = new List<GameObject>();
+            list.Add(tileObj);
+        }
 
         public void ReloadCallBlockListImmediate(List<CallBlockData> data)
         {
             ClearAllCallBlocks();
-            foreach (CallBlockData block in data){
+            foreach (CallBlockData block in data)
+            {
                 AddCallBlockImmediate(block);
             }
         }
@@ -84,6 +99,20 @@ namespace MCRGame.UI
 
             // 3) 리스트에 보관
             callBlocks.Add(callBlockObj);
+
+            if (data.Type != CallBlockType.AN_KONG)
+            {
+                var cb = callBlockObj.GetComponent<CallBlock>();
+                foreach (var tileObj in cb.Tiles)
+                {
+                    if (GameTileExtensions.TryParseCustom(tileObj.name, out var tile))
+                    {
+                        if (!tileObjectDictionary.TryGetValue(tile, out var list))
+                            tileObjectDictionary[tile] = list = new List<GameObject>();
+                        list.Add(tileObj);
+                    }
+                }
+            }
 
             // 4) 위치 계산
             PositionNewCallBlock(callBlockObj);
@@ -145,6 +174,20 @@ namespace MCRGame.UI
             callBlock.Data = data;
             callBlock.InitializeCallBlock();
             callBlocks.Add(callBlockObj);
+
+            if (data.Type != CallBlockType.AN_KONG)
+            {
+                var cb = callBlockObj.GetComponent<CallBlock>();
+                foreach (var tileObj in cb.Tiles)
+                {
+                    if (GameTileExtensions.TryParseCustom(tileObj.name, out var tile))
+                    {
+                        if (!tileObjectDictionary.TryGetValue(tile, out var list))
+                            tileObjectDictionary[tile] = list = new List<GameObject>();
+                        list.Add(tileObj);
+                    }
+                }
+            }
 
             // 3) 새 블록의 최종 로컬 위치 결정 (바로 직전 블록을 기준)
             PositionNewCallBlock(callBlockObj);
@@ -344,6 +387,48 @@ namespace MCRGame.UI
             mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
         }
 
+        /// <summary>tile과 일치하는 모든 CallBlock을 하이라이트(하늘색)합니다.</summary>
+        public void HighlightBlocks(GameTile tile)
+        {
+            ClearHighlights();
+
+            if (tileObjectDictionary.TryGetValue(tile, out var goList))
+            {
+                foreach (var go in goList)
+                {
+                    var rends = go.GetComponentsInChildren<Renderer>();
+                    foreach (var r in rends)
+                    {
+                        foreach (var mat in r.materials)
+                        {
+                            _highlighted.Add(r);
+                            Color orig = mat.color;
+                            // 연한 하늘색: R=0.7, G=0.9, B=1
+                            mat.color = new Color(0.7f, 0.9f, 1f, orig.a);
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>이전 하이라이트를 모두 해제하고, 흰색 Opaque로 되돌립니다.</summary>
+        public void ClearHighlights()
+        {
+            foreach (var r in _highlighted)
+            {
+                if (r == null)
+                    continue;
+
+                foreach (var mat in r.materials)
+                {
+                    if (mat.HasProperty("_Color"))
+                        mat.color = Color.white;
+                }
+            }
+            _highlighted.Clear();
+        }
+
+
         public void ClearAllCallBlocks()
         {
             foreach (var cb in callBlocks)
@@ -351,6 +436,8 @@ namespace MCRGame.UI
                 Destroy(cb);
             }
             callBlocks.Clear();
+            tileObjectDictionary.Clear();
+            ClearHighlights();
         }
     }
 }

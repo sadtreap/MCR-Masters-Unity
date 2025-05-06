@@ -132,6 +132,8 @@ namespace MCRGame.Game
         [SerializeField] public Hand3DField[] playersHand3DFields;
         [SerializeField] private CallBlockField[] callBlockFields;
 
+        public CallBlockField[] CallBlockFields => callBlockFields;
+
         /* ---------- UI Refs ---------- */
         [SerializeField] private TextMeshProUGUI leftTilesText;
         [SerializeField] private TextMeshProUGUI currentRoundText;

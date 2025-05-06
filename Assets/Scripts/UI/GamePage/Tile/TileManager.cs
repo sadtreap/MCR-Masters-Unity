@@ -55,6 +55,10 @@ namespace MCRGame.UI
             {
                 GameManager.Instance.NowHoverTile = tile;
                 GameManager.Instance.NowHoverSource = this;
+
+                gameHandManager.DiscardManager.HighlightTiles(tile);
+                foreach (var cbField in GameManager.Instance.CallBlockFields)
+                    cbField.HighlightBlocks(tile);
             }
         }
 
@@ -71,6 +75,10 @@ namespace MCRGame.UI
                 GameManager.Instance.NowHoverTile = null;
                 GameManager.Instance.NowHoverSource = null;
             }
+
+            gameHandManager.DiscardManager.ClearHighlights();
+            foreach (var cbField in GameManager.Instance.CallBlockFields)
+                cbField.ClearHighlights();
         }
 
         public void OnPointerClick(PointerEventData eventData)
@@ -110,6 +118,10 @@ namespace MCRGame.UI
             {
                 GameManager.Instance.NowHoverTile = null;
                 GameManager.Instance.NowHoverSource = null;
+
+                gameHandManager.DiscardManager.ClearHighlights();
+                foreach (var cbField in GameManager.Instance.CallBlockFields)
+                    cbField.ClearHighlights();
             }
         }
     }

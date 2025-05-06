@@ -27,6 +27,7 @@ namespace MCRGame.UI
 
         private Dictionary<RelativeSeat, List<GameObject>> kawas = new Dictionary<RelativeSeat, List<GameObject>>();
         private Dictionary<GameTile, List<GameObject>> tileObjectDictionary = new Dictionary<GameTile, List<GameObject>>();
+        private readonly List<Renderer> _highlighted = new List<Renderer>();
 
         void Awake()
         {
@@ -51,6 +52,64 @@ namespace MCRGame.UI
             tileObjectDictionary.Clear();
         }
 
+        /// <summary>
+        /// 현재 GameManager에 기록된 hover 타일과 같다면 하이라이트를 다시 적용합니다.
+        /// </summary>
+        private void HighlightIfHovering(GameTile tile)
+        {
+            if (GameManager.Instance.NowHoverTile.HasValue
+                && GameManager.Instance.NowHoverTile.Value == tile)
+            {
+                HighlightTiles(tile);
+            }
+        }
+
+
+        /// <summary>
+        /// tile과 일치하는 discard 타일을 하늘색으로 하이라이트합니다.
+        /// </summary>
+        public void HighlightTiles(GameTile tile)
+        {
+            ClearHighlights();
+
+            if (tileObjectDictionary.TryGetValue(tile, out var goList))
+            {
+                foreach (var go in goList)
+                {
+                    var rends = go.GetComponentsInChildren<Renderer>();
+                    foreach (var r in rends)
+                    {
+                        foreach (var mat in r.materials)
+                        {
+                            _highlighted.Add(r);
+                            Color orig = mat.color;
+                            // 연한 하늘색: R=0.7, G=0.9, B=1
+                            mat.color = new Color(0.7f, 0.9f, 1f, orig.a);
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 이전에 하이라이트했던 타일을 원래 색(흰색 불투명)으로 되돌립니다.
+        /// </summary>
+        public void ClearHighlights()
+        {
+            foreach (var r in _highlighted)
+            {
+                if (r == null)
+                    continue;
+
+                foreach (var mat in r.materials)
+                {
+                    if (mat.HasProperty("_Color"))
+                        mat.color = Color.white;
+                }
+            }
+            _highlighted.Clear();
+        }
+
 
         public void ReloadAllDiscards(List<List<GameTile>> allTilesBySeat)
         {
@@ -71,7 +130,7 @@ namespace MCRGame.UI
                 if (seatIdx < 0 || seatIdx >= allTilesBySeat.Count)
                     continue;
 
-                var tiles = allTilesBySeat[(int)RelativeSeatExtensions.ToAbsoluteSeat(rel:seat, mySeat:GameManager.Instance.MySeat)];
+                var tiles = allTilesBySeat[(int)RelativeSeatExtensions.ToAbsoluteSeat(rel: seat, mySeat: GameManager.Instance.MySeat)];
                 Transform origin = GetDiscardPosition(seat);
                 if (origin == null)
                 {
@@ -203,6 +262,8 @@ namespace MCRGame.UI
                 tileObjectDictionary[tile] = list;
             }
             list.Add(instantiatedTile);
+
+            HighlightIfHovering(tile);
 
             // 애니메이션 코루틴 시작
             StartCoroutine(AnimateDiscard(instantiatedTile, seat, col, row, origin, finalPos, finalRot));

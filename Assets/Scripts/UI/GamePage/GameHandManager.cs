@@ -16,6 +16,8 @@ namespace MCRGame.UI
         [SerializeField] private CallBlockField callBlockField;
         [SerializeField] private DiscardManager discardManager;
 
+        public DiscardManager DiscardManager => discardManager;
+
         [Header("Hand Animation Settings")]
         [SerializeField] private float slideDuration = 0.5f;
         [SerializeField] private float gap = 0.1f;
@@ -260,7 +262,7 @@ namespace MCRGame.UI
 
             if (!rawTsumoTile.HasValue)
                 tsumoTile = null;
-            
+
             SortTileList();
             ImmediateReplaceTiles();
         }
